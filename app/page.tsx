@@ -12,6 +12,7 @@ export default async function HomePage() {
     .limit(50);
 
   if (error) {
+    console.error("Supabase posts fetch error:", error)
     return (
       <div className="rounded-xl border border-flag/30 bg-flag/5 p-4 text-sm text-flag">
         Не вдалося завантажити пости. Перевір, чи налаштовані змінні
