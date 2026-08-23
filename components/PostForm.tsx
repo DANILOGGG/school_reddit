@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 import { assertPostLength, containsBlockedWord } from "@/lib/moderation";
 
 export default function PostForm() {
   const router = useRouter();
   const [body, setBody] = useState("");
-  const [authorName, setAuthorName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -27,13 +26,16 @@ export default function PostForm() {
       setError("Текст містить слова, які не можна публікувати.");
       return;
     }
-    if (!isAnonymous && authorName.trim().length === 0) {
-      setError("Вкажи ім'я або постав позначку «Анонімно».");
-      return;
-    }
 
     setSubmitting(true);
+    const supabase = createClient();
+
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("not authenticated");
+
       let imageUrl: string | null = null;
 
       if (file) {
@@ -54,8 +56,8 @@ export default function PostForm() {
       const { error: insertError } = await supabase.from("posts").insert({
         body,
         is_anonymous: isAnonymous,
-        author_name: isAnonymous ? null : authorName.trim(),
         image_url: imageUrl,
+        user_id: user.id,
       });
 
       if (insertError) throw insertError;
@@ -77,7 +79,7 @@ export default function PostForm() {
         onChange={(e) => setBody(e.target.value)}
         placeholder="Що хочеш розповісти?"
         rows={6}
-        className="w-full rounded-xl border border-ink/15 bg-white p-3 text-[15px] leading-relaxed outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
+        className="w-full rounded-xl border border-border bg-surface p-3 text-[15px] leading-relaxed text-paper placeholder:text-muted outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
       />
 
       <div className="flex items-center gap-3">
@@ -86,8 +88,8 @@ export default function PostForm() {
           onClick={() => setIsAnonymous(true)}
           className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
             isAnonymous
-              ? "bg-chalk text-paper"
-              : "bg-white text-ink/70 border border-ink/15"
+              ? "bg-chalk text-base"
+              : "border border-border bg-surface text-muted"
           }`}
         >
           Анонімно
@@ -97,25 +99,16 @@ export default function PostForm() {
           onClick={() => setIsAnonymous(false)}
           className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
             !isAnonymous
-              ? "bg-chalk text-paper"
-              : "bg-white text-ink/70 border border-ink/15"
+              ? "bg-chalk text-base"
+              : "border border-border bg-surface text-muted"
           }`}
         >
-          Під іменем
+          Під своїм ніком
         </button>
       </div>
 
-      {!isAnonymous && (
-        <input
-          value={authorName}
-          onChange={(e) => setAuthorName(e.target.value)}
-          placeholder="Твоє ім'я або нік"
-          className="w-full rounded-xl border border-ink/15 bg-white p-3 text-[15px] outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
-        />
-      )}
-
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-ink/70">
-        <span className="rounded-full border border-ink/15 bg-white px-3 py-1.5">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+        <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-paper">
           {file ? file.name : "Додати фото (необов'язково)"}
         </span>
         <input
@@ -133,7 +126,7 @@ export default function PostForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-full bg-chalk px-5 py-2.5 font-medium text-paper transition hover:bg-chalk/90 disabled:opacity-50"
+        className="rounded-full bg-chalk px-5 py-2.5 font-medium text-base transition hover:bg-mint disabled:opacity-50"
       >
         {submitting ? "Публікуємо…" : "Опублікувати"}
       </button>

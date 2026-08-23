@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import type { Comment, Post } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
+import type { Comment, Post } from "@/lib/types";
 import { assertPostLength } from "@/lib/moderation";
 
 function formatDate(iso: string) {
@@ -29,6 +29,7 @@ export default function PostDetail({
   const [submitting, setSubmitting] = useState(false);
 
   async function handleReport() {
+    const supabase = createClient();
     await supabase
       .from("posts")
       .update({ report_count: post.report_count + 1 })
@@ -46,9 +47,24 @@ export default function PostDetail({
     }
 
     setSubmitting(true);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setSubmitting(false);
+      setError("Треба увійти, щоб коментувати.");
+      return;
+    }
+
     const { data, error: insertError } = await supabase
       .from("comments")
-      .insert({ post_id: post.id, body: commentBody, is_anonymous: true })
+      .insert({
+        post_id: post.id,
+        body: commentBody,
+        is_anonymous: true,
+        user_id: user.id,
+      })
       .select()
       .single();
     setSubmitting(false);
@@ -63,16 +79,16 @@ export default function PostDetail({
 
   return (
     <div>
-      <div className="rounded-2xl border border-ink/10 bg-white p-5">
-        <div className="mb-2 flex items-center justify-between text-xs text-ink/60">
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="mb-2 flex items-center justify-between text-xs text-muted">
           <div className="flex items-center gap-2">
             {post.is_anonymous ? (
-              <span className="rounded-full bg-chalkLight px-2 py-0.5 font-medium text-chalk">
+              <span className="rounded-full bg-moss px-2 py-0.5 font-medium text-mint">
                 Анонімно
               </span>
             ) : (
-              <span className="font-medium text-ink/80">
-                {post.author_name}
+              <span className="font-medium text-paper">
+                {post.profiles?.nickname ?? "Користувач"}
               </span>
             )}
             <span>·</span>
@@ -96,12 +112,12 @@ export default function PostDetail({
           />
         )}
 
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink">
+        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-paper">
           {post.body}
         </p>
       </div>
 
-      <h2 className="mb-3 mt-6 font-display text-lg text-ink">
+      <h2 className="mb-3 mt-6 font-display text-lg text-paper">
         Коментарі ({comments.length})
       </h2>
 
@@ -109,16 +125,16 @@ export default function PostDetail({
         {comments.map((c) => (
           <div
             key={c.id}
-            className="rounded-xl border border-ink/10 bg-white p-3 text-sm"
+            className="rounded-xl border border-border bg-surface p-3 text-sm"
           >
-            <div className="mb-1 text-xs text-ink/50">
+            <div className="mb-1 text-xs text-muted">
               {formatDate(c.created_at)}
             </div>
-            <p className="whitespace-pre-wrap text-ink">{c.body}</p>
+            <p className="whitespace-pre-wrap text-paper">{c.body}</p>
           </div>
         ))}
         {comments.length === 0 && (
-          <p className="text-sm text-ink/50">Поки що без коментарів.</p>
+          <p className="text-sm text-muted">Поки що без коментарів.</p>
         )}
       </div>
 
@@ -128,13 +144,13 @@ export default function PostDetail({
           onChange={(e) => setCommentBody(e.target.value)}
           placeholder="Додати коментар (анонімно)…"
           rows={3}
-          className="w-full rounded-xl border border-ink/15 bg-white p-3 text-sm outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
+          className="w-full rounded-xl border border-border bg-surface p-3 text-sm text-paper placeholder:text-muted outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
         />
         {error && <p className="text-sm text-flag">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="self-start rounded-full bg-chalk px-4 py-2 text-sm font-medium text-paper transition hover:bg-chalk/90 disabled:opacity-50"
+          className="self-start rounded-full bg-chalk px-4 py-2 text-sm font-medium text-base transition hover:bg-mint disabled:opacity-50"
         >
           {submitting ? "Надсилаємо…" : "Коментувати"}
         </button>

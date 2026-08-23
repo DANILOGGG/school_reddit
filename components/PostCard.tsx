@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Post } from "@/lib/supabaseClient";
+import type { Post } from "@/lib/types";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -15,15 +15,17 @@ export default function PostCard({ post }: { post: Post }) {
   return (
     <Link
       href={`/post/${post.id}`}
-      className="block rounded-2xl border border-ink/10 bg-white p-4 transition hover:border-chalk/40 hover:shadow-sm"
+      className="block rounded-2xl border border-border bg-surface p-4 transition hover:border-chalk/60"
     >
-      <div className="mb-2 flex items-center gap-2 text-xs text-ink/60">
+      <div className="mb-2 flex items-center gap-2 text-xs text-muted">
         {post.is_anonymous ? (
-          <span className="rounded-full bg-chalkLight px-2 py-0.5 font-medium text-chalk">
+          <span className="rounded-full bg-moss px-2 py-0.5 font-medium text-mint">
             Анонімно
           </span>
         ) : (
-          <span className="font-medium text-ink/80">{post.author_name}</span>
+          <span className="font-medium text-paper">
+            {post.profiles?.nickname ?? "Користувач"}
+          </span>
         )}
         <span>·</span>
         <span>{formatDate(post.created_at)}</span>
@@ -38,7 +40,7 @@ export default function PostCard({ post }: { post: Post }) {
         />
       )}
 
-      <p className="whitespace-pre-wrap font-body text-[15px] leading-relaxed text-ink">
+      <p className="whitespace-pre-wrap font-body text-[15px] leading-relaxed text-paper">
         {post.body.length > 300 ? post.body.slice(0, 300) + "…" : post.body}
       </p>
     </Link>

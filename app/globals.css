@@ -3,10 +3,15 @@
 @tailwind utilities;
 
 body {
-  background-color: #F7F5F0;
-  color: #1F2A24;
+  background-color: #0A0F0C;
+  color: #EAF3EC;
 }
 
 ::selection {
-  background-color: #E7F1EB;
+  background-color: #2C5F3E;
+  color: #EAF3EC;
+}
+
+* {
+  scrollbar-color: #2C5F3E #10170F;
 }
