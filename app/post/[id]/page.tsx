@@ -15,7 +15,7 @@ export default async function PostPage({
 
   const { data: post } = await supabase
     .from("posts")
-    .select("*, profiles(*)")
+    .select("*, profiles(*), likes(count), reposts(count), comments(count)")
     .eq("id", params.id)
     .single();
 
@@ -27,10 +27,27 @@ export default async function PostPage({
     .eq("post_id", params.id)
     .order("created_at", { ascending: true });
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let liked = false;
+  let reposted = false;
+  if (user) {
+    const [{ data: like }, { data: repost }] = await Promise.all([
+      supabase.from("likes").select("post_id").eq("user_id", user.id).eq("post_id", params.id).maybeSingle(),
+      supabase.from("reposts").select("post_id").eq("user_id", user.id).eq("post_id", params.id).maybeSingle(),
+    ]);
+    liked = !!like;
+    reposted = !!repost;
+  }
+
   return (
     <PostDetail
       post={post as Post}
       initialComments={(comments as Comment[]) ?? []}
+      liked={liked}
+      reposted={reposted}
     />
   );
 }

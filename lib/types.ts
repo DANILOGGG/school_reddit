@@ -15,6 +15,9 @@ export type Post = {
   report_count: number;
   user_id: string;
   profiles?: Profile | null;
+  likes?: { count: number }[];
+  reposts?: { count: number }[];
+  comments?: { count: number }[];
 };
 
 export type Comment = {

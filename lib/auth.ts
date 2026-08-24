@@ -3,7 +3,7 @@
 // технічний email — сам користувач його ніколи не бачить і не вводить.
 export function nicknameToEmail(nickname: string): string {
   const normalized = nickname.trim().toLowerCase().replace(/\s+/g, "_");
-    return `${normalized}.schoolforum@gmail.com`;
+  return `${normalized}.schoolforum@gmail.com`;
 }
 
 export function validateNickname(nickname: string): string | null {

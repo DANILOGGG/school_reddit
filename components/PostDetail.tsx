@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Comment, Post } from "@/lib/types";
 import { assertPostLength } from "@/lib/moderation";
+import PostActions from "@/components/PostActions";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -18,15 +20,22 @@ function formatDate(iso: string) {
 export default function PostDetail({
   post,
   initialComments,
+  liked,
+  reposted,
 }: {
   post: Post;
   initialComments: Comment[];
+  liked: boolean;
+  reposted: boolean;
 }) {
   const [comments, setComments] = useState(initialComments);
   const [commentBody, setCommentBody] = useState("");
   const [reported, setReported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const likeCount = post.likes?.[0]?.count ?? 0;
+  const repostCount = post.reposts?.[0]?.count ?? 0;
 
   async function handleReport() {
     const supabase = createClient();
@@ -86,10 +95,15 @@ export default function PostDetail({
               <span className="rounded-full bg-moss px-2 py-0.5 font-medium text-mint">
                 Анонімно
               </span>
+            ) : post.profiles?.nickname ? (
+              <Link
+                href={`/u/${post.profiles.nickname}`}
+                className="font-medium text-paper hover:underline"
+              >
+                {post.profiles.nickname}
+              </Link>
             ) : (
-              <span className="font-medium text-paper">
-                {post.profiles?.nickname ?? "Користувач"}
-              </span>
+              <span className="font-medium text-paper">Користувач</span>
             )}
             <span>·</span>
             <span>{formatDate(post.created_at)}</span>
@@ -115,6 +129,15 @@ export default function PostDetail({
         <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-paper">
           {post.body}
         </p>
+
+        <PostActions
+          postId={post.id}
+          likeCount={likeCount}
+          repostCount={repostCount}
+          commentCount={comments.length}
+          liked={liked}
+          reposted={reposted}
+        />
       </div>
 
       <h2 className="mb-3 mt-6 font-display text-lg text-paper">
