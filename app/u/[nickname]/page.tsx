@@ -25,7 +25,7 @@ export default async function PublicProfilePage({
   // їх на /profile, не тут).
   const { data: posts } = await supabase
     .from("posts")
-    .select("*, profiles(*), likes(count), reposts(count), comments(count)")
+    .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
     .eq("user_id", profile.id)
     .eq("is_anonymous", false)
     .order("created_at", { ascending: false });

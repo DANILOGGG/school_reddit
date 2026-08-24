@@ -10,7 +10,7 @@ export default async function HomePage() {
 
   const { data: posts, error } = await supabase
     .from("posts")
-    .select("*, profiles(*), likes(count), reposts(count), comments(count)")
+    .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
     .order("created_at", { ascending: false })
     .limit(50);
 

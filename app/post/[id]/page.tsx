@@ -15,7 +15,7 @@ export default async function PostPage({
 
   const { data: post } = await supabase
     .from("posts")
-    .select("*, profiles(*), likes(count), reposts(count), comments(count)")
+    .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
     .eq("id", params.id)
     .single();
 
