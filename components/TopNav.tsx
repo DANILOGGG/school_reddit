@@ -4,6 +4,7 @@ import type { Profile } from "@/lib/types";
 
 const DONATE_URL =
   process.env.NEXT_PUBLIC_DONATE_URL || "https://send.monobank.ua/";
+const TELEGRAM_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/";
 
 export default async function TopNav() {
   const supabase = createClient();
@@ -38,16 +39,16 @@ export default async function TopNav() {
   }
 
   const iconBtn =
-    "relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surfaceRaised text-paper transition hover:border-chalk hover:text-mint";
+    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-surfaceRaised text-paper transition hover:border-chalk hover:text-mint";
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-base/95 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl items-center justify-between px-3 py-3">
-        <Link href="/" className="font-display text-lg text-paper sm:text-xl">
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 py-3">
+        <Link href="/" className="shrink-0 font-display text-lg text-paper sm:text-xl">
           Шкільна дошка
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto sm:gap-2">
           <Link href="/new" className={iconBtn} title="Новий пост" aria-label="Новий пост">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -63,12 +64,42 @@ export default async function TopNav() {
             aria-label="Донат"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M6 6v.01M18 18v-.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </a>
+
+          <a
+            href={TELEGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={iconBtn}
+            title="Telegram-канал"
+            aria-label="Telegram-канал"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path
-                d="M12 21s-7-4.5-9.5-9C.7 8.2 2 4.8 5.3 4.1 7.6 3.6 9.8 4.6 12 7c2.2-2.4 4.4-3.4 6.7-2.9 3.3.7 4.6 4.1 2.8 7.9C19 16.5 12 21 12 21z"
-                fill="currentColor"
+                d="M21 3L2 10.5l6 2.3M21 3l-3.5 17L11 15.5M21 3L11 15.5m0 0l-2.5 5.5v-5L11 15.5"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </svg>
           </a>
+
+          <Link href="/stats" className={iconBtn} title="Статистика" aria-label="Статистика">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M4 20V10M12 20V4M20 20v-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
 
           <Link href="/activity" className={iconBtn} title="Активність" aria-label="Активність">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -100,7 +131,7 @@ export default async function TopNav() {
 
           <Link
             href="/profile"
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-chalk bg-surfaceRaised"
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-chalk bg-surfaceRaised"
             title="Профіль"
             aria-label="Профіль"
           >

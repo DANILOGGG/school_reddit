@@ -23,7 +23,7 @@ export default async function PostPage({
 
   const { data: comments } = await supabase
     .from("comments")
-    .select("*, profiles!comments_user_id_fkey(*)")
+    .select("*, profiles!comments_user_id_fkey(*), comment_likes(count)")
     .eq("post_id", params.id)
     .order("created_at", { ascending: true });
 
@@ -33,13 +33,16 @@ export default async function PostPage({
 
   let liked = false;
   let reposted = false;
+  let likedCommentIds: string[] = [];
   if (user) {
-    const [{ data: like }, { data: repost }] = await Promise.all([
+    const [{ data: like }, { data: repost }, { data: commentLikes }] = await Promise.all([
       supabase.from("likes").select("post_id").eq("user_id", user.id).eq("post_id", params.id).maybeSingle(),
       supabase.from("reposts").select("post_id").eq("user_id", user.id).eq("post_id", params.id).maybeSingle(),
+      supabase.from("comment_likes").select("comment_id").eq("user_id", user.id),
     ]);
     liked = !!like;
     reposted = !!repost;
+    likedCommentIds = (commentLikes ?? []).map((c) => c.comment_id);
   }
 
   return (
@@ -48,6 +51,7 @@ export default async function PostPage({
       initialComments={(comments as Comment[]) ?? []}
       liked={liked}
       reposted={reposted}
+      likedCommentIds={likedCommentIds}
     />
   );
 }

@@ -17,22 +17,100 @@ function formatDate(iso: string) {
   });
 }
 
+function CommentItem({
+  comment,
+  initiallyLiked,
+}: {
+  comment: Comment;
+  initiallyLiked: boolean;
+}) {
+  const [liked, setLiked] = useState(initiallyLiked);
+  const [count, setCount] = useState(comment.comment_likes?.[0]?.count ?? 0);
+
+  async function handleLike() {
+    if (liked) return;
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("comment_likes")
+      .insert({ comment_id: comment.id, user_id: user.id });
+
+    if (!error) {
+      setLiked(true);
+      setCount((n) => n + 1);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3 text-sm">
+      <div className="mb-1 flex items-center gap-2 text-xs text-muted">
+        {comment.profiles?.nickname ? (
+          <Link
+            href={`/u/${comment.profiles.nickname}`}
+            className="font-medium text-paper hover:underline"
+          >
+            {comment.profiles.nickname}
+          </Link>
+        ) : (
+          <span className="font-medium text-paper">Користувач</span>
+        )}
+        <span>·</span>
+        <span>{formatDate(comment.created_at)}</span>
+      </div>
+      {comment.body && (
+        <p className="whitespace-pre-wrap text-paper">{comment.body}</p>
+      )}
+      {comment.gif_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={comment.gif_url}
+          alt=""
+          className="mt-2 max-h-48 rounded-lg object-cover"
+        />
+      )}
+      <button
+        onClick={handleLike}
+        className={`mt-2 flex items-center gap-1 rounded-full px-2 py-1 text-xs transition ${
+          liked ? "text-mint" : "text-muted hover:text-paper"
+        }`}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"}>
+          <path
+            d="M12 21s-7-4.5-9.5-9C.7 8.2 2 4.8 5.3 4.1 7.6 3.6 9.8 4.6 12 7c2.2-2.4 4.4-3.4 6.7-2.9 3.3.7 4.6 4.1 2.8 7.9C19 16.5 12 21 12 21z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+        </svg>
+        {count}
+      </button>
+    </div>
+  );
+}
+
 export default function PostDetail({
   post,
   initialComments,
   liked,
   reposted,
+  likedCommentIds,
 }: {
   post: Post;
   initialComments: Comment[];
   liked: boolean;
   reposted: boolean;
+  likedCommentIds: string[];
 }) {
   const [comments, setComments] = useState(initialComments);
   const [commentBody, setCommentBody] = useState("");
+  const [gifFile, setGifFile] = useState<File | null>(null);
   const [reported, setReported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const likedSet = new Set(likedCommentIds);
 
   const likeCount = post.likes?.[0]?.count ?? 0;
   const repostCount = post.reposts?.[0]?.count ?? 0;
@@ -49,10 +127,17 @@ export default function PostDetail({
   async function handleComment(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const lengthError = assertPostLength(commentBody, 500);
-    if (lengthError) {
-      setError(lengthError);
+
+    if (!commentBody.trim() && !gifFile) {
+      setError("Напиши текст або додай гіфку.");
       return;
+    }
+    if (commentBody.trim()) {
+      const lengthError = assertPostLength(commentBody, 500);
+      if (lengthError) {
+        setError(lengthError);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -66,6 +151,24 @@ export default function PostDetail({
       return;
     }
 
+    let gifUrl: string | null = null;
+    if (gifFile) {
+      const fileExt = gifFile.name.split(".").pop();
+      const filePath = `${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("post-images")
+        .upload(filePath, gifFile);
+      if (uploadError) {
+        setSubmitting(false);
+        setError("Не вдалося завантажити гіфку.");
+        return;
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from("post-images")
+        .getPublicUrl(filePath);
+      gifUrl = publicUrlData.publicUrl;
+    }
+
     const { data, error: insertError } = await supabase
       .from("comments")
       .insert({
@@ -73,6 +176,7 @@ export default function PostDetail({
         body: commentBody,
         is_anonymous: false,
         user_id: user.id,
+        gif_url: gifUrl,
       })
       .select("*, profiles!comments_user_id_fkey(*)")
       .single();
@@ -84,6 +188,7 @@ export default function PostDetail({
     }
     setComments([...comments, data as Comment]);
     setCommentBody("");
+    setGifFile(null);
   }
 
   return (
@@ -146,26 +251,7 @@ export default function PostDetail({
 
       <div className="mb-4 flex flex-col gap-2">
         {comments.map((c) => (
-          <div
-            key={c.id}
-            className="rounded-xl border border-border bg-surface p-3 text-sm"
-          >
-            <div className="mb-1 flex items-center gap-2 text-xs text-muted">
-              {c.profiles?.nickname ? (
-                <Link
-                  href={`/u/${c.profiles.nickname}`}
-                  className="font-medium text-paper hover:underline"
-                >
-                  {c.profiles.nickname}
-                </Link>
-              ) : (
-                <span className="font-medium text-paper">Користувач</span>
-              )}
-              <span>·</span>
-              <span>{formatDate(c.created_at)}</span>
-            </div>
-            <p className="whitespace-pre-wrap text-paper">{c.body}</p>
-          </div>
+          <CommentItem key={c.id} comment={c} initiallyLiked={likedSet.has(c.id)} />
         ))}
         {comments.length === 0 && (
           <p className="text-sm text-muted">Поки що без коментарів.</p>
@@ -180,6 +266,17 @@ export default function PostDetail({
           rows={3}
           className="w-full rounded-xl border border-border bg-surface p-3 text-sm text-paper placeholder:text-muted outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
         />
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-muted">
+          <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-paper">
+            {gifFile ? gifFile.name : "Додати гіфку"}
+          </span>
+          <input
+            type="file"
+            accept="image/gif,image/*"
+            className="hidden"
+            onChange={(e) => setGifFile(e.target.files?.[0] ?? null)}
+          />
+        </label>
         {error && <p className="text-sm text-flag">{error}</p>}
         <button
           type="submit"

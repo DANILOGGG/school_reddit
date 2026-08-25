@@ -28,7 +28,9 @@ export type Comment = {
   is_anonymous: boolean;
   author_name: string | null;
   user_id: string;
+  gif_url: string | null;
   profiles?: Profile | null;
+  comment_likes?: { count: number }[];
 };
 
 export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "friends";
