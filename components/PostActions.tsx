@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import type { Profile } from "@/lib/types";
 
 export default function PostActions({
   postId,
@@ -25,6 +26,8 @@ export default function PostActions({
   const [reposts, setReposts] = useState(repostCount);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [friends, setFriends] = useState<Profile[] | null>(null);
+  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
 
   async function handleLike(e: React.MouseEvent) {
     e.preventDefault();
@@ -72,6 +75,46 @@ export default function PostActions({
     e.preventDefault();
     e.stopPropagation();
     setShareOpen(true);
+    if (friends === null) loadFriends();
+  }
+
+  async function loadFriends() {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return setFriends([]);
+
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select(
+        "*, requester:profiles!friendships_requester_id_fkey(*), addressee:profiles!friendships_addressee_id_fkey(*)"
+      )
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+    const list: Profile[] = (friendships ?? []).map((f: any) =>
+      f.requester_id === user.id ? f.addressee : f.requester
+    );
+    setFriends(list);
+  }
+
+  async function sendToFriend(friendId: string) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase.from("messages").insert({
+      sender_id: user.id,
+      receiver_id: friendId,
+      shared_post_id: postId,
+    });
+
+    if (!error) {
+      setSentTo((prev) => new Set(prev).add(friendId));
+    }
   }
 
   async function copyLink() {
@@ -183,9 +226,36 @@ export default function PostActions({
               </svg>
               {copied ? "Скопійовано!" : "Скопіювати посилання"}
             </button>
-            <p className="mt-3 text-xs text-muted">
-              Надсилання конкретному другу з'явиться разом із функцією друзів.
-            </p>
+
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-medium text-muted">
+                Надіслати другу
+              </p>
+              {friends === null && (
+                <p className="text-sm text-muted">Завантаження…</p>
+              )}
+              {friends !== null && friends.length === 0 && (
+                <p className="text-sm text-muted">
+                  У тебе поки немає друзів.
+                </p>
+              )}
+              <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+                {friends?.map((friend) => (
+                  <button
+                    key={friend.id}
+                    onClick={() => sendToFriend(friend.id)}
+                    disabled={sentTo.has(friend.id)}
+                    className="flex items-center justify-between rounded-xl border border-border bg-surfaceRaised px-3 py-2 text-left text-sm text-paper transition hover:border-chalk disabled:opacity-50"
+                  >
+                    <span>{friend.nickname}</span>
+                    <span className="text-xs text-mint">
+                      {sentTo.has(friend.id) ? "Надіслано" : "Надіслати"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={() => setShareOpen(false)}
               className="mt-4 w-full rounded-full border border-border py-2 text-sm text-paper"

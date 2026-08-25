@@ -71,10 +71,10 @@ export default function PostDetail({
       .insert({
         post_id: post.id,
         body: commentBody,
-        is_anonymous: true,
+        is_anonymous: false,
         user_id: user.id,
       })
-      .select()
+      .select("*, profiles!comments_user_id_fkey(*)")
       .single();
     setSubmitting(false);
 
@@ -150,8 +150,19 @@ export default function PostDetail({
             key={c.id}
             className="rounded-xl border border-border bg-surface p-3 text-sm"
           >
-            <div className="mb-1 text-xs text-muted">
-              {formatDate(c.created_at)}
+            <div className="mb-1 flex items-center gap-2 text-xs text-muted">
+              {c.profiles?.nickname ? (
+                <Link
+                  href={`/u/${c.profiles.nickname}`}
+                  className="font-medium text-paper hover:underline"
+                >
+                  {c.profiles.nickname}
+                </Link>
+              ) : (
+                <span className="font-medium text-paper">Користувач</span>
+              )}
+              <span>·</span>
+              <span>{formatDate(c.created_at)}</span>
             </div>
             <p className="whitespace-pre-wrap text-paper">{c.body}</p>
           </div>
@@ -165,7 +176,7 @@ export default function PostDetail({
         <textarea
           value={commentBody}
           onChange={(e) => setCommentBody(e.target.value)}
-          placeholder="Додати коментар (анонімно)…"
+          placeholder="Додати коментар…"
           rows={3}
           className="w-full rounded-xl border border-border bg-surface p-3 text-sm text-paper placeholder:text-muted outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
         />

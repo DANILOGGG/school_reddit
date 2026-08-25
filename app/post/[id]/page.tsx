@@ -23,7 +23,7 @@ export default async function PostPage({
 
   const { data: comments } = await supabase
     .from("comments")
-    .select("*")
+    .select("*, profiles!comments_user_id_fkey(*)")
     .eq("post_id", params.id)
     .order("created_at", { ascending: true });
 

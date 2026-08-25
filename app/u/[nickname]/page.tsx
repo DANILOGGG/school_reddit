@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import PostCard from "@/components/PostCard";
-import type { Post, Profile } from "@/lib/types";
+import FriendButton from "@/components/FriendButton";
+import type { FriendshipStatus, Post, Profile } from "@/lib/types";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -33,6 +34,31 @@ export default async function PublicProfilePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  let friendshipId: string | null = null;
+  let friendStatus: FriendshipStatus = "none";
+  const isOwnProfile = user?.id === profile.id;
+
+  if (user && !isOwnProfile) {
+    const { data: friendship } = await supabase
+      .from("friendships")
+      .select("*")
+      .or(
+        `and(requester_id.eq.${user.id},addressee_id.eq.${profile.id}),and(requester_id.eq.${profile.id},addressee_id.eq.${user.id})`
+      )
+      .maybeSingle();
+
+    if (friendship) {
+      friendshipId = friendship.id;
+      if (friendship.status === "accepted") {
+        friendStatus = "friends";
+      } else if (friendship.requester_id === user.id) {
+        friendStatus = "pending_sent";
+      } else {
+        friendStatus = "pending_received";
+      }
+    }
+  }
 
   let likedIds = new Set<string>();
   let repostedIds = new Set<string>();
@@ -66,6 +92,16 @@ export default async function PublicProfilePage({
           <p className="text-sm text-muted">{posts?.length ?? 0} постів</p>
         </div>
       </div>
+
+      {user && !isOwnProfile && (
+        <div className="mb-6">
+          <FriendButton
+            profileId={typedProfile.id}
+            friendshipId={friendshipId}
+            initialStatus={friendStatus}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {(posts as Post[] | null)?.map((post) => (

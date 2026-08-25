@@ -12,6 +12,8 @@ export default async function TopNav() {
   } = await supabase.auth.getUser();
 
   let profile: Profile | null = null;
+  let hasActivity = false;
+
   if (user) {
     const { data } = await supabase
       .from("profiles")
@@ -19,10 +21,24 @@ export default async function TopNav() {
       .eq("id", user.id)
       .single();
     profile = data as Profile | null;
+
+    const [{ count: pendingCount }, { count: unreadCount }] = await Promise.all([
+      supabase
+        .from("friendships")
+        .select("id", { count: "exact", head: true })
+        .eq("addressee_id", user.id)
+        .eq("status", "pending"),
+      supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("receiver_id", user.id)
+        .is("read_at", null),
+    ]);
+    hasActivity = (pendingCount ?? 0) > 0 || (unreadCount ?? 0) > 0;
   }
 
   const iconBtn =
-    "flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surfaceRaised text-paper transition hover:border-chalk hover:text-mint";
+    "relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surfaceRaised text-paper transition hover:border-chalk hover:text-mint";
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-base/95 backdrop-blur">
@@ -65,6 +81,9 @@ export default async function TopNav() {
               />
               <path d="M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
+            {hasActivity && (
+              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-flag" />
+            )}
           </Link>
 
           <Link href="/friends" className={iconBtn} title="Друзі" aria-label="Друзі">

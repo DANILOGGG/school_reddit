@@ -28,4 +28,26 @@ export type Comment = {
   is_anonymous: boolean;
   author_name: string | null;
   user_id: string;
+  profiles?: Profile | null;
+};
+
+export type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "friends";
+
+export type Friendship = {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: "pending" | "accepted";
+  created_at: string;
+};
+
+export type Message = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  body: string | null;
+  shared_post_id: string | null;
+  created_at: string;
+  read_at: string | null;
+  shared_post?: Post | null;
 };
