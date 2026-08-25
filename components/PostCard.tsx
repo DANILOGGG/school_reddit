@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { Post } from "@/lib/types";
 import PostActions from "@/components/PostActions";
@@ -27,30 +29,26 @@ export default function PostCard({
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 transition hover:border-chalk/60">
-      <Link href={`/post/${post.id}`} className="block">
-        <div className="mb-2 flex items-center gap-2 text-xs text-muted">
-          {post.is_anonymous ? (
-            <span className="rounded-full bg-moss px-2 py-0.5 font-medium text-mint">
-              Анонімно
-            </span>
-          ) : (
-            <span
-              onClick={(e) => e.stopPropagation()}
-              className="font-medium text-paper hover:underline"
-            >
-              {post.profiles?.nickname ? (
-                <Link href={`/u/${post.profiles.nickname}`}>
-                  {post.profiles.nickname}
-                </Link>
-              ) : (
-                "Користувач"
-              )}
-            </span>
-          )}
-          <span>·</span>
-          <span>{formatDate(post.created_at)}</span>
-        </div>
+      <div className="mb-2 flex items-center gap-2 text-xs text-muted">
+        {post.is_anonymous ? (
+          <span className="rounded-full bg-moss px-2 py-0.5 font-medium text-mint">
+            Анонімно
+          </span>
+        ) : post.profiles?.nickname ? (
+          <Link
+            href={`/u/${post.profiles.nickname}`}
+            className="font-medium text-paper hover:underline"
+          >
+            {post.profiles.nickname}
+          </Link>
+        ) : (
+          <span className="font-medium text-paper">Користувач</span>
+        )}
+        <span>·</span>
+        <span>{formatDate(post.created_at)}</span>
+      </div>
 
+      <Link href={`/post/${post.id}`} className="block">
         {post.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
