@@ -14,6 +14,7 @@ export type Post = {
   image_url: string | null;
   report_count: number;
   user_id: string;
+  category: "news" | "thoughts" | null;
   profiles?: Profile | null;
   likes?: { count: number }[];
   reposts?: { count: number }[];

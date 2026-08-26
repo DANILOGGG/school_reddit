@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { assertPostLength, containsBlockedWord } from "@/lib/moderation";
 
+type Category = "none" | "news" | "thoughts";
+
 export default function PostForm() {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(true);
+  const [category, setCategory] = useState<Category>("none");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +61,7 @@ export default function PostForm() {
         is_anonymous: isAnonymous,
         image_url: imageUrl,
         user_id: user.id,
+        category: category === "none" ? null : category,
       });
 
       if (insertError) throw insertError;
@@ -71,6 +75,20 @@ export default function PostForm() {
       setSubmitting(false);
     }
   }
+
+  const catBtn = (value: Category, label: string) => (
+    <button
+      type="button"
+      onClick={() => setCategory(value)}
+      className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+        category === value
+          ? "bg-chalk text-base"
+          : "border border-border bg-surface text-muted"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -107,7 +125,16 @@ export default function PostForm() {
         </button>
       </div>
 
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+      <div>
+        <p className="mb-2 text-xs text-muted">Категорія</p>
+        <div className="flex flex-wrap gap-2">
+          {catBtn("none", "Без категорії")}
+          {catBtn("news", "Цікаві новини")}
+          {catBtn("thoughts", "Спонтанні думки")}
+        </div>
+      </div>
+
+      <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
         <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-paper">
           {file ? file.name : "Додати фото (необов'язково)"}
         </span>
