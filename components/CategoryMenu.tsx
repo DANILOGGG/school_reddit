@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 const OPTIONS = [
@@ -12,11 +13,25 @@ const OPTIONS = [
 
 export default function CategoryMenu({ iconBtn }: { iconBtn: string }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [mounted, setMounted] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 8, left: rect.left });
+    }
+    setOpen(!open);
+  }
 
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={() => setOpen(!open)}
+        ref={btnRef}
+        onClick={toggle}
         className={iconBtn}
         title="Категорії"
         aria-label="Категорії"
@@ -29,26 +44,31 @@ export default function CategoryMenu({ iconBtn }: { iconBtn: string }) {
         </svg>
       </button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute left-0 top-12 z-20 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
-            {OPTIONS.map((opt) => (
-              <Link
-                key={opt.href}
-                href={opt.href}
-                onClick={() => setOpen(false)}
-                className="block px-4 py-3 text-left text-sm text-paper hover:bg-surfaceRaised"
-              >
-                {opt.label}
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+      {mounted && open &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              style={{ top: pos.top, left: pos.left }}
+              className="fixed z-50 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
+            >
+              {OPTIONS.map((opt) => (
+                <Link
+                  key={opt.href}
+                  href={opt.href}
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-3 text-left text-sm text-paper hover:bg-surfaceRaised"
+                >
+                  {opt.label}
+                </Link>
+              ))}
+            </div>
+          </>,
+          document.body
+        )}
+    </>
   );
 }
