@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { assertPostLength, containsBlockedWord } from "@/lib/moderation";
+import ImageCropper from "@/components/ImageCropper";
 
 type Category = "none" | "news" | "thoughts";
 
@@ -13,6 +14,18 @@ export default function PostForm() {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [category, setCategory] = useState<Category>("none");
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,17 +147,57 @@ export default function PostForm() {
         </div>
       </div>
 
-      <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
-        <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-paper">
-          {file ? file.name : "Додати фото (необов'язково)"}
-        </span>
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+      {!file && (
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
+          <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-paper">
+            Додати фото (необов&apos;язково)
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+        </label>
+      )}
+
+      {file && (
+        <div className="flex items-center gap-3">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-border bg-surfaceRaised">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {previewUrl && (
+              <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setCropperOpen(true)}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-paper hover:border-chalk"
+            >
+              Обрізати
+            </button>
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-flag hover:border-flag"
+            >
+              Прибрати фото
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cropperOpen && file && (
+        <ImageCropper
+          file={file}
+          onCancel={() => setCropperOpen(false)}
+          onCropped={(cropped) => {
+            setFile(cropped);
+            setCropperOpen(false);
+          }}
         />
-      </label>
+      )}
 
       {error && (
         <p className="rounded-lg bg-flag/10 p-2 text-sm text-flag">{error}</p>
