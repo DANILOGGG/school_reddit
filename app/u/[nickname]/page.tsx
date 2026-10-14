@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import PostCard from "@/components/PostCard";
 import FriendButton from "@/components/FriendButton";
-import type { FriendshipStatus, Post, Profile } from "@/lib/types";
+import AdminUserPanel from "@/components/AdminUserPanel";
+import { checkIsAdmin } from "@/lib/admin";
+import type { Ban, FriendshipStatus, Post, Profile } from "@/lib/types";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -34,6 +36,18 @@ export default async function PublicProfilePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const isAdmin = await checkIsAdmin(supabase, user?.id);
+
+  let targetBan: Ban | null = null;
+  if (isAdmin) {
+    const { data: banRow } = await supabase
+      .from("bans")
+      .select("*")
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    targetBan = (banRow as Ban | null) ?? null;
+  }
 
   let friendshipId: string | null = null;
   let friendStatus: FriendshipStatus = "none";
@@ -93,6 +107,14 @@ export default async function PublicProfilePage({
         </div>
       </div>
 
+      {isAdmin && !isOwnProfile && (
+        <AdminUserPanel
+          userId={typedProfile.id}
+          nickname={typedProfile.nickname}
+          initialBan={targetBan}
+        />
+      )}
+
       {user && !isOwnProfile && (
         <div className="mb-6">
           <FriendButton
@@ -110,6 +132,7 @@ export default async function PublicProfilePage({
             post={post}
             liked={likedIds.has(post.id)}
             reposted={repostedIds.has(post.id)}
+            isAdmin={isAdmin}
           />
         ))}
         {(!posts || posts.length === 0) && (

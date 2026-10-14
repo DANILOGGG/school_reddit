@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Comment, Post } from "@/lib/types";
 import { assertPostLength } from "@/lib/moderation";
@@ -20,9 +21,13 @@ function formatDate(iso: string) {
 function CommentItem({
   comment,
   initiallyLiked,
+  isAdmin,
+  onDeleted,
 }: {
   comment: Comment;
   initiallyLiked: boolean;
+  isAdmin: boolean;
+  onDeleted: (id: string) => void;
 }) {
   const [liked, setLiked] = useState(initiallyLiked);
   const [count, setCount] = useState(comment.comment_likes?.[0]?.count ?? 0);
@@ -45,6 +50,20 @@ function CommentItem({
     }
   }
 
+  async function handleAdminDelete() {
+    if (!confirm("Видалити цей коментар (як адмін)?")) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", comment.id);
+    if (error) {
+      alert("Не вдалося видалити коментар: " + error.message);
+      return;
+    }
+    onDeleted(comment.id);
+  }
+
   return (
     <div className="rounded-xl border border-border bg-surface p-3 text-sm">
       <div className="mb-1 flex items-center gap-2 text-xs text-muted">
@@ -60,6 +79,14 @@ function CommentItem({
         )}
         <span>·</span>
         <span>{formatDate(comment.created_at)}</span>
+        {isAdmin && (
+          <button
+            onClick={handleAdminDelete}
+            className="ml-auto text-flag hover:underline"
+          >
+            Видалити (адмін)
+          </button>
+        )}
       </div>
       {comment.body && (
         <p className="whitespace-pre-wrap text-paper">{comment.body}</p>
@@ -97,13 +124,16 @@ export default function PostDetail({
   liked,
   reposted,
   likedCommentIds,
+  isAdmin = false,
 }: {
   post: Post;
   initialComments: Comment[];
   liked: boolean;
   reposted: boolean;
   likedCommentIds: string[];
+  isAdmin?: boolean;
 }) {
+  const router = useRouter();
   const [comments, setComments] = useState(initialComments);
   const [commentBody, setCommentBody] = useState("");
   const [gifFile, setGifFile] = useState<File | null>(null);
@@ -117,11 +147,22 @@ export default function PostDetail({
 
   async function handleReport() {
     const supabase = createClient();
-    await supabase
-      .from("posts")
-      .update({ report_count: post.report_count + 1 })
-      .eq("id", post.id);
-    setReported(true);
+    const { error } = await supabase.rpc("report_post", {
+      p_post_id: post.id,
+    });
+    if (!error) setReported(true);
+  }
+
+  async function handleAdminDeletePost() {
+    if (!confirm("Видалити цей пост назавжди (як адмін)?")) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("posts").delete().eq("id", post.id);
+    if (error) {
+      alert("Не вдалося видалити пост: " + error.message);
+      return;
+    }
+    router.push("/");
+    router.refresh();
   }
 
   async function handleComment(e: React.FormEvent) {
@@ -213,14 +254,38 @@ export default function PostDetail({
             <span>·</span>
             <span>{formatDate(post.created_at)}</span>
           </div>
-          <button
-            onClick={handleReport}
-            disabled={reported}
-            className="text-flag/70 hover:text-flag disabled:opacity-40"
-          >
-            {reported ? "Скаргу надіслано" : "Поскаржитись"}
-          </button>
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <>
+                {post.report_count > 0 && (
+                  <span className="text-gold">⚠ скарг: {post.report_count}</span>
+                )}
+                <button
+                  onClick={handleAdminDeletePost}
+                  className="text-flag hover:underline"
+                >
+                  Видалити (адмін)
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleReport}
+              disabled={reported}
+              className="text-flag/70 hover:text-flag disabled:opacity-40"
+            >
+              {reported ? "Скаргу надіслано" : "Поскаржитись"}
+            </button>
+          </div>
         </div>
+
+        {isAdmin && post.is_anonymous && post.profiles?.nickname && (
+          <p className="mb-2 text-xs text-gold">
+            Автор анонімного поста:{" "}
+            <Link href={`/u/${post.profiles.nickname}`} className="underline">
+              {post.profiles.nickname}
+            </Link>
+          </p>
+        )}
 
         {post.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -251,7 +316,13 @@ export default function PostDetail({
 
       <div className="mb-4 flex flex-col gap-2">
         {comments.map((c) => (
-          <CommentItem key={c.id} comment={c} initiallyLiked={likedSet.has(c.id)} />
+          <CommentItem
+            key={c.id}
+            comment={c}
+            initiallyLiked={likedSet.has(c.id)}
+            isAdmin={isAdmin}
+            onDeleted={(id) => setComments((prev) => prev.filter((x) => x.id !== id))}
+          />
         ))}
         {comments.length === 0 && (
           <p className="text-sm text-muted">Поки що без коментарів.</p>

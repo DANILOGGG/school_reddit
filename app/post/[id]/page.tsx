@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import PostDetail from "@/components/PostDetail";
 import type { Comment, Post } from "@/lib/types";
 import { notFound } from "next/navigation";
+import { checkIsAdmin } from "@/lib/admin";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -31,6 +32,8 @@ export default async function PostPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isAdmin = await checkIsAdmin(supabase, user?.id);
+
   let liked = false;
   let reposted = false;
   let likedCommentIds: string[] = [];
@@ -52,6 +55,7 @@ export default async function PostPage({
       liked={liked}
       reposted={reposted}
       likedCommentIds={likedCommentIds}
+      isAdmin={isAdmin}
     />
   );
 }

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import CategoryMenu from "@/components/CategoryMenu";
+import { checkIsAdmin, formatBanUntil, isBanActive } from "@/lib/admin";
+import type { Ban } from "@/lib/types";
 
 const DONATE_URL =
   process.env.NEXT_PUBLIC_DONATE_URL || "https://send.monobank.ua/";
@@ -15,6 +17,8 @@ export default async function TopNav() {
 
   let profile: Profile | null = null;
   let hasActivity = false;
+  let isAdmin = false;
+  let activeBan: Ban | null = null;
 
   if (user) {
     const { data } = await supabase
@@ -23,6 +27,14 @@ export default async function TopNav() {
       .eq("id", user.id)
       .single();
     profile = data as Profile | null;
+
+    isAdmin = await checkIsAdmin(supabase, user.id);
+    const { data: banRow } = await supabase
+      .from("bans")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (isBanActive(banRow as Ban | null)) activeBan = banRow as Ban;
 
     const [{ count: pendingCount }, { count: unreadCount }] = await Promise.all([
       supabase
@@ -160,6 +172,19 @@ export default async function TopNav() {
           </Link>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="bg-gold/10 px-3 py-1 text-center text-xs text-gold">
+          Ти зайшов як адмін
+        </div>
+      )}
+      {activeBan && (
+        <div className="bg-flag/10 px-3 py-2 text-center text-sm text-flag">
+          Твій акаунт заблоковано {formatBanUntil(activeBan.banned_until)}.
+          Ти можеш читати, але не можеш писати, коментувати чи лайкати.
+          {activeBan.reason ? ` Причина: ${activeBan.reason}` : ""}
+        </div>
+      )}
     </header>
   );
 }

@@ -54,3 +54,10 @@ export type Message = {
   read_at: string | null;
   shared_post?: Post | null;
 };
+
+export type Ban = {
+  user_id: string;
+  banned_until: string | null; // null = назавжди
+  reason: string | null;
+  created_at: string;
+};

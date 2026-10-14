@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import PostCard from "@/components/PostCard";
 import type { Post } from "@/lib/types";
+import { checkIsAdmin } from "@/lib/admin";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -66,6 +67,8 @@ export default async function HomePage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isAdmin = await checkIsAdmin(supabase, user?.id);
+
   let likedIds = new Set<string>();
   let repostedIds = new Set<string>();
   if (user) {
@@ -107,6 +110,7 @@ export default async function HomePage({
             post={post}
             liked={likedIds.has(post.id)}
             reposted={repostedIds.has(post.id)}
+            isAdmin={isAdmin}
           />
         ))}
       </div>
