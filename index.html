@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RandomPhoto</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="corner-btns-group corner-btns-left">
+    <button id="settingsBtn" class="corner-btn" data-i18n-title="settings_title" title="Налаштування">⚙️</button>
+    <button id="profileBtn" class="corner-btn" data-i18n-title="profile_title" title="Мій профіль">👤</button>
+    <button id="statsBtn" class="corner-btn" data-i18n-title="stats_title" title="Статистика сайту">📊</button>
+    <button id="searchBtn" class="corner-btn" data-i18n-title="search_title" title="Пошук користувачів">🔍</button>
+    <button id="donateBtn" class="corner-btn" data-i18n-title="donate_title" title="Підтримати проект">💰</button>
+  </div>
+
+  <div class="corner-btns-group corner-btns-right">
+    <button id="themeToggle" class="corner-btn" data-i18n-title="theme_title" title="Змінити тему">🌙</button>
+    <button id="langBtn" class="corner-btn lang-btn" data-i18n-title="lang_title" title="Змінити мову">UA</button>
+    <button id="tgBtn" class="corner-btn" data-i18n-title="tg_title" title="Наш Telegram">📣</button>
+    <button id="inboxBtn" class="corner-btn" data-i18n-title="inbox_title" title="Коментарі під моїми фото">
+      💬
+      <span id="inboxBadge" class="inbox-badge hidden">0</span>
+    </button>
+  </div>
+
+  <div id="donateModal" class="modal hidden">
+    <div class="modal-box donate-box">
+      <h2 data-i18n="donate_heading">Підтримка проекту</h2>
+      <img src="donate-qr.png" data-i18n-alt="donate_qr_alt" alt="QR код для донату" class="donate-qr">
+      <button id="donateActionBtn" class="donate-btn" data-i18n="donate_action_btn">💰 Донат</button>
+      <button id="closeDonateBtn" class="close-donate-btn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="searchModal" class="modal hidden">
+    <div class="modal-box search-box">
+      <h2 data-i18n="search_heading">Пошук користувачів</h2>
+      <input type="text" id="searchInput" data-i18n-placeholder="search_placeholder" placeholder="Введи нікнейм..." maxlength="20">
+      <div class="search-results" id="searchResults"></div>
+      <button id="closeSearchBtn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="statsModal" class="modal hidden">
+    <div class="modal-box stats-box">
+      <div class="settings-tabs">
+        <button id="statsTabSiteBtn" class="settings-tab active" data-i18n="stats_tab_site">Статистика сайту</button>
+        <button id="statsTabMineBtn" class="settings-tab" data-i18n="stats_tab_mine">Моя статистика</button>
+      </div>
+
+      <div id="statsSitePanel" class="settings-panel">
+        <div class="stats-grid">
+          <div class="stats-item">
+            <div class="stats-number" id="statsPhotos">0</div>
+            <div class="stats-label" data-i18n="stats_photos">фото</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-number" id="statsComments">0</div>
+            <div class="stats-label" data-i18n="stats_comments">коментарів</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-number" id="statsLikes">0</div>
+            <div class="stats-label" data-i18n="stats_likes">лайків</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-number" id="statsUsers">0</div>
+            <div class="stats-label" data-i18n="stats_users">користувачів</div>
+          </div>
+        </div>
+
+        <div class="stats-top-user" id="statsTopUser"></div>
+      </div>
+
+      <div id="statsMinePanel" class="settings-panel hidden">
+        <div class="stats-grid">
+          <div class="stats-item">
+            <div class="stats-number" id="myStatsPhotos">0</div>
+            <div class="stats-label" data-i18n="my_stats_photos">моїх фото</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-number" id="myStatsComments">0</div>
+            <div class="stats-label" data-i18n="my_stats_comments">моїх коментарів</div>
+          </div>
+          <div class="stats-item">
+            <div class="stats-number" id="myStatsLikes">0</div>
+            <div class="stats-label" data-i18n="my_stats_likes">моїх лайків</div>
+          </div>
+        </div>
+      </div>
+
+      <button id="closeStatsBtn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="profileModal" class="modal hidden">
+    <div class="modal-box profile-box">
+      <h2 id="profileTitle" data-i18n="profile_heading_own">Мій профіль</h2>
+
+      <div class="avatar-wrap">
+        <img id="profileAvatarImg" class="profile-avatar hidden" data-i18n-alt="avatar_alt" alt="Аватарка">
+        <div id="profileAvatarFallback" class="profile-avatar-fallback">?</div>
+        <div id="avatarEditHint" class="avatar-edit-hint hidden" data-i18n="avatar_edit_hint">Змінити</div>
+      </div>
+      <input type="file" id="avatarInput" accept="image/*" hidden>
+
+      <p class="profile-nick" id="profileNickDisplay"></p>
+
+      <div class="profile-grid" id="profileGrid"></div>
+
+      <button id="closeProfileBtn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="inboxModal" class="modal hidden">
+    <div class="modal-box inbox-box">
+      <h2 data-i18n="inbox_heading">Коментарі під твоїми фото</h2>
+      <div class="inbox-list" id="inboxList"></div>
+      <button id="closeInboxBtn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-box settings-box">
+      <div class="settings-tabs">
+        <button id="tabNickBtn" class="settings-tab active" data-i18n="tab_nick">Нікнейм</button>
+        <button id="tabAboutBtn" class="settings-tab" data-i18n="tab_about">Про сайт</button>
+      </div>
+
+      <div id="tabNickPanel" class="settings-panel">
+        <p data-i18n="current_nick_label">Твій поточний нік:</p>
+        <p class="current-nick" id="currentNickDisplay"></p>
+        <input type="text" id="renameInput" data-i18n-placeholder="rename_placeholder" placeholder="Новий нік" maxlength="20">
+        <button id="saveRenameBtn" data-i18n="rename_btn">Змінити нік</button>
+        <p class="settings-hint" data-i18n="rename_hint">Нік зміниться усюди: на твоїх фото, лайках і коментарях.</p>
+      </div>
+
+      <div id="tabAboutPanel" class="settings-panel hidden">
+        <p class="about-text" data-i18n="about_text">
+          Привіт! Це RandomPhoto — маленький сайт, де кожен може завантажити
+          своє фото, а інші отримують його випадково та лайкають. Зроблено
+          з цікавості та любові до простих ідей 🚀
+        </p>
+      </div>
+
+      <button id="closeSettingsBtn" class="close-settings-btn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="nickModal" class="modal hidden">
+    <div class="modal-box">
+      <h2 data-i18n="nick_heading">Ласкаво просимо!</h2>
+      <p data-i18n="nick_sub">Введи свій нікнейм, щоб продовжити:</p>
+      <input type="text" id="nickInput" data-i18n-placeholder="nick_placeholder" placeholder="Твій нік" maxlength="20">
+      <button id="saveNickBtn" data-i18n="nick_save_btn">Зберегти</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>📸 RandomPhoto</h1>
+    <p id="welcomeText"></p>
+    <p id="totalLikesText" class="total-likes"></p>
+    <button id="createGroupBtn" class="create-group-btn" data-i18n="create_group_btn">👥 Створити групу</button>
+  </header>
+
+  <main>
+    <p id="photoCaption" class="photo-caption hidden"></p>
+    <div class="photo-area" id="photoArea">
+      <p class="placeholder" data-i18n="photo_placeholder">Тут з'явиться фото 👇</p>
+    </div>
+
+    <div class="photo-info" id="photoInfo"></div>
+
+    <div class="comments-section hidden" id="commentsSection">
+      <div class="comments-list" id="commentsList"></div>
+      <div class="comment-form">
+        <input type="text" id="commentInput" data-i18n-placeholder="comment_placeholder" placeholder="Написати коментар..." maxlength="300">
+        <button id="sendCommentBtn">➤</button>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="uploadBtn" class="btn btn-primary" data-i18n="upload_btn">📤 Завантажити фото</button>
+      <button id="randomBtn" class="btn btn-secondary" data-i18n="random_btn">🎲 Рандомна фото</button>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </main>
+
+  <aside class="groups-section" id="groupsSection">
+    <h2 class="groups-heading" data-i18n="popular_groups_heading">🔥 Популярні групи</h2>
+    <div class="groups-list" id="groupsList"></div>
+  </aside>
+
+  <section class="events-section categories-section">
+    <h2 class="events-heading" data-i18n="categories_heading">🗂️ Категорії фото</h2>
+    <input
+      type="text"
+      id="categorySearchInput"
+      class="category-search-input"
+      data-i18n-placeholder="category_search_placeholder"
+      placeholder="Пошук категорії... (наприклад «гори», «шахи»)"
+      autocomplete="off"
+    >
+    <div class="category-panel hidden" id="categoryPanel"></div>
+  </section>
+
+  <div id="pixelArtOverlay" class="pixelart-overlay hidden">
+    <div class="pixelart-header">
+      <button id="pixelArtBackBtn" class="pixelart-back-btn">← Назад</button>
+      <span class="pixelart-title">🎨 Піксель Арт</span>
+      <span class="pixelart-online" id="pixelArtOnline">🟢 0</span>
+    </div>
+
+    <div class="pixelart-canvas-wrap" id="pixelArtCanvasWrap">
+      <canvas id="pixelArtCanvas"></canvas>
+    </div>
+
+    <div class="pixelart-toolbar">
+      <div class="pixelart-palette" id="pixelArtPalette"></div>
+      <div class="pixelart-tools">
+        <button id="pixelArtEraserBtn" class="pixelart-tool-btn" title="Гумка">🧹</button>
+        <button id="pixelArtZoomOutBtn" class="pixelart-tool-btn" title="Віддалити">➖</button>
+        <button id="pixelArtZoomInBtn" class="pixelart-tool-btn" title="Наблизити">➕</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="createGroupModal" class="modal hidden">
+    <div class="modal-box create-group-box">
+      <h2 data-i18n="create_group_heading">Створити групу</h2>
+
+      <div class="group-avatar-picker" id="createGroupAvatarPicker">
+        <img id="createGroupAvatarPreview" class="hidden" alt="">
+        <span id="createGroupAvatarPlaceholder">📷</span>
+      </div>
+      <p class="settings-hint create-group-hint" data-i18n="create_group_avatar_hint">Натисни, щоб обрати аватарку</p>
+      <input type="file" id="createGroupAvatarInput" accept="image/*" hidden>
+
+      <input type="text" id="createGroupName" data-i18n-placeholder="group_name_placeholder" placeholder="Назва групи" maxlength="40">
+      <textarea id="createGroupDesc" data-i18n-placeholder="group_desc_placeholder" placeholder="Опис групи (необов'язково)" maxlength="300" rows="3"></textarea>
+
+      <div class="crop-actions">
+        <button id="createGroupCancelBtn" class="crop-cancel-btn" data-i18n="edit_cancel_btn">Скасувати</button>
+        <button id="createGroupSubmitBtn" class="crop-confirm-btn" data-i18n="create_group_submit">Створити</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="groupModal" class="modal hidden">
+    <div class="modal-box group-box">
+      <div id="groupContent"></div>
+      <button id="closeGroupBtn" class="group-close-btn" data-i18n="close_btn">Закрити</button>
+    </div>
+  </div>
+
+  <div id="categoryPickModal" class="modal hidden">
+    <div class="modal-box category-modal-box">
+      <h2 data-i18n="category_pick_heading">Виберіть категорію фото</h2>
+      <input
+        type="text"
+        id="categoryPickSearchInput"
+        class="category-search-input"
+        data-i18n-placeholder="category_search_placeholder_short"
+        placeholder="Пошук категорії..."
+        autocomplete="off"
+      >
+      <div class="category-panel" id="categoryPickPanel"></div>
+      <button id="categoryPickCancelBtn" class="crop-cancel-btn category-cancel-upload-btn" data-i18n="category_pick_cancel">Скасувати завантаження</button>
+    </div>
+  </div>
+
+  <div id="editPhotoModal" class="modal hidden">
+    <div class="modal-box category-modal-box">
+      <h2 data-i18n="edit_photo_heading">Редагувати фото</h2>
+      <input type="text" id="editCaptionInput" class="caption-input" data-i18n-placeholder="edit_caption_placeholder" placeholder="Опис фото (необов'язково)..." maxlength="200">
+      <p class="settings-hint edit-category-label" data-i18n="edit_category_label">Категорія:</p>
+      <input
+        type="text"
+        id="editCategorySearchInput"
+        class="category-search-input"
+        data-i18n-placeholder="category_search_placeholder_short"
+        placeholder="Пошук категорії..."
+        autocomplete="off"
+      >
+      <div class="category-panel" id="editCategoryPanel"></div>
+      <div class="crop-actions">
+        <button id="editPhotoCancelBtn" class="crop-cancel-btn" data-i18n="edit_cancel_btn">Скасувати</button>
+        <button id="editPhotoSaveBtn" class="crop-confirm-btn" data-i18n="edit_save_btn">Зберегти ✅</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cropModal" class="modal hidden">
+    <div class="modal-box crop-box">
+      <h2 data-i18n="crop_heading">Обріж фото</h2>
+      <p class="crop-hint" data-i18n="crop_hint">Перетягни фото пальцем/мишкою, наближай повзунком</p>
+
+      <div class="crop-viewport" id="cropViewport">
+        <img id="cropImage" draggable="false" data-i18n-alt="crop_photo_alt" alt="Фото для кадрування">
+      </div>
+
+      <input type="range" id="cropZoom" min="100" max="300" value="100">
+
+      <input type="text" id="captionInput" class="caption-input" data-i18n-placeholder="crop_caption_placeholder" placeholder="Додати опис (необов'язково)..." maxlength="200">
+
+      <div class="crop-actions">
+        <button id="cropCancelBtn" class="crop-cancel-btn" data-i18n="crop_cancel_btn">Скасувати</button>
+        <button id="cropConfirmBtn" class="crop-confirm-btn" data-i18n="crop_confirm_btn">Готово ✅</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+  <script src="pixelart.js"></script>
+</body>
+</html>
