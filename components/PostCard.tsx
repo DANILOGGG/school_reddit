@@ -117,6 +117,7 @@ export default function PostCard({
         commentCount={commentCount}
         liked={liked}
         reposted={reposted}
+        inGroup={!!post.group_id}
       />
     </div>
   );

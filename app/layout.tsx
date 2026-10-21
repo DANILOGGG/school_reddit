@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import TopNav from "@/components/TopNav";
+import VisitTracker from "@/components/VisitTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="uk">
       <body className="min-h-screen bg-base font-body text-paper">
+        <VisitTracker />
         <Suspense
           fallback={<div className="h-[65px] border-b border-border bg-base" />}
         >

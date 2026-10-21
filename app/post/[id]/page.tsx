@@ -32,7 +32,23 @@ export default async function PostPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAdmin = await checkIsAdmin(supabase, user?.id);
+  const siteAdmin = await checkIsAdmin(supabase, user?.id);
+
+  // Пост з групи: показуємо посилання назад і даємо власнику групи модерувати
+  let group: { id: string; name: string } | null = null;
+  let isGroupOwner = false;
+  if (post.group_id) {
+    const { data: g } = await supabase
+      .from("groups")
+      .select("id, name, owner_id")
+      .eq("id", post.group_id)
+      .single();
+    if (g) {
+      group = { id: g.id, name: g.name };
+      isGroupOwner = !!user && g.owner_id === user.id;
+    }
+  }
+  const isAdmin = siteAdmin || isGroupOwner;
 
   let liked = false;
   let reposted = false;
@@ -56,6 +72,7 @@ export default async function PostPage({
       reposted={reposted}
       likedCommentIds={likedCommentIds}
       isAdmin={isAdmin}
+      group={group}
     />
   );
 }

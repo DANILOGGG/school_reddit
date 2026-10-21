@@ -24,6 +24,7 @@ export default async function ProfilePage() {
     .from("posts")
     .select("*")
     .eq("user_id", user.id)
+    .is("group_id", null)
     .order("created_at", { ascending: false });
 
   return (

@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import PostCard from "@/components/PostCard";
 import type { Post } from "@/lib/types";
+import { Suspense } from "react";
 import { checkIsAdmin } from "@/lib/admin";
+import GroupsStrip from "@/components/GroupsStrip";
 import LiveFeed from "@/components/LiveFeed";
 
 export const revalidate = 0;
@@ -24,6 +26,7 @@ export default async function HomePage({
   let query = supabase
     .from("posts")
     .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
+    .is("group_id", null)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -58,6 +61,9 @@ export default async function HomePage({
     return (
       <div>
         <LiveFeed />
+        <Suspense fallback={null}>
+          <GroupsStrip userId={user?.id ?? null} />
+        </Suspense>
         {activeLabel && (
           <p className="mb-3 text-sm text-muted">
             Категорія: <span className="text-paper">{activeLabel}</span>
@@ -103,6 +109,9 @@ export default async function HomePage({
   return (
     <div>
       <LiveFeed />
+      <Suspense fallback={null}>
+        <GroupsStrip userId={user?.id ?? null} />
+      </Suspense>
       {activeLabel && (
         <p className="mb-3 text-sm text-muted">
           Категорія: <span className="text-paper">{activeLabel}</span>

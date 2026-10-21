@@ -15,6 +15,7 @@ export type Post = {
   report_count: number;
   user_id: string;
   category: "news" | "thoughts" | null;
+  group_id?: string | null;
   profiles?: Profile | null;
   likes?: { count: number }[];
   reposts?: { count: number }[];
@@ -59,5 +60,15 @@ export type Ban = {
   user_id: string;
   banned_until: string | null; // null = назавжди
   reason: string | null;
+  created_at: string;
+};
+
+export type Group = {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string | null;
+  avatar_url: string | null;
+  member_count: number;
   created_at: string;
 };

@@ -12,6 +12,7 @@ export default function PostActions({
   commentCount,
   liked,
   reposted,
+  inGroup = false,
 }: {
   postId: string;
   likeCount: number;
@@ -19,6 +20,7 @@ export default function PostActions({
   commentCount: number;
   liked: boolean;
   reposted: boolean;
+  inGroup?: boolean;
 }) {
   const [isLiked, setIsLiked] = useState(liked);
   const [likes, setLikes] = useState(likeCount);
@@ -164,6 +166,7 @@ export default function PostActions({
         {commentCount}
       </Link>
 
+      {!inGroup && (
       <button
         onClick={handleShareClick}
         className={`${btn} text-muted hover:bg-surfaceRaised hover:text-paper`}
@@ -179,7 +182,9 @@ export default function PostActions({
         </svg>
         Поділитись
       </button>
+      )}
 
+      {!inGroup && (
       <button
         onClick={handleRepost}
         className={`${btn} ml-auto ${
@@ -199,6 +204,7 @@ export default function PostActions({
         </svg>
         {reposts}
       </button>
+      )}
 
       {shareOpen && (
         <div

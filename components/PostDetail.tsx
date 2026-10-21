@@ -128,6 +128,7 @@ export default function PostDetail({
   reposted,
   likedCommentIds,
   isAdmin = false,
+  group = null,
 }: {
   post: Post;
   initialComments: Comment[];
@@ -135,6 +136,7 @@ export default function PostDetail({
   reposted: boolean;
   likedCommentIds: string[];
   isAdmin?: boolean;
+  group?: { id: string; name: string } | null;
 }) {
   const router = useRouter();
   const [comments, setComments] = useState(initialComments);
@@ -238,6 +240,14 @@ export default function PostDetail({
 
   return (
     <div>
+      {group && (
+        <Link
+          href={`/g/${group.id}`}
+          className="mb-3 inline-block text-sm text-muted hover:text-paper"
+        >
+          ← Група «{group.name}»
+        </Link>
+      )}
       <div className="rounded-2xl border border-border bg-surface p-5">
         <div className="mb-2 flex items-center justify-between text-xs text-muted">
           <div className="flex items-center gap-2">
@@ -312,6 +322,7 @@ export default function PostDetail({
           commentCount={comments.length}
           liked={liked}
           reposted={reposted}
+          inGroup={!!post.group_id}
         />
       </div>
 

@@ -9,10 +9,10 @@ import { compressImage } from "@/lib/image";
 
 type Category = "none" | "news" | "thoughts";
 
-export default function PostForm() {
+export default function PostForm({ groupId }: { groupId?: string }) {
   const router = useRouter();
   const [body, setBody] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(true);
+  const [isAnonymous, setIsAnonymous] = useState(!groupId);
   const [category, setCategory] = useState<Category>("none");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -73,15 +73,16 @@ export default function PostForm() {
 
       const { error: insertError } = await supabase.from("posts").insert({
         body,
-        is_anonymous: isAnonymous,
+        is_anonymous: groupId ? false : isAnonymous,
         image_url: imageUrl,
         user_id: user.id,
-        category: category === "none" ? null : category,
+        category: groupId || category === "none" ? null : category,
+        group_id: groupId ?? null,
       });
 
       if (insertError) throw insertError;
 
-      router.push("/");
+      router.push(groupId ? `/g/${groupId}` : "/");
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -110,11 +111,13 @@ export default function PostForm() {
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Що хочеш розповісти?"
+        placeholder={groupId ? "Що нового в групі?" : "Що хочеш розповісти?"}
         rows={6}
         className="w-full rounded-xl border border-border bg-surface p-3 text-[15px] leading-relaxed text-paper placeholder:text-muted outline-none focus:border-chalk focus:ring-2 focus:ring-chalk/20"
       />
 
+      {!groupId && (
+      <>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -148,6 +151,8 @@ export default function PostForm() {
           {catBtn("thoughts", "Спонтанні думки")}
         </div>
       </div>
+      </>
+      )}
 
       {!file && (
         <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
