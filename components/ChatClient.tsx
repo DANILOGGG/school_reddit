@@ -83,7 +83,7 @@ export default function ChatClient({
         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-chalk bg-surfaceRaised">
           {friend.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={friend.avatar_url} alt="" className="h-full w-full object-cover" />
+            <img src={friend.avatar_url} alt="" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <span className="text-sm font-semibold text-mint">
               {friend.nickname[0]?.toUpperCase()}

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import PostCard from "@/components/PostCard";
 import type { Post } from "@/lib/types";
 import { checkIsAdmin } from "@/lib/admin";
+import LiveFeed from "@/components/LiveFeed";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -34,7 +35,12 @@ export default async function HomePage({
     query = query.eq("category", "thoughts");
   }
 
-  const { data: posts, error } = await query;
+  // Пости й користувач — одночасно
+  const [{ data: posts, error }, userRes] = await Promise.all([
+    query,
+    supabase.auth.getUser(),
+  ]);
+  const user = userRes.data.user;
 
   if (error) {
     console.error("Supabase posts fetch error:", error);
@@ -51,6 +57,7 @@ export default async function HomePage({
   if (!posts || posts.length === 0) {
     return (
       <div>
+        <LiveFeed />
         {activeLabel && (
           <p className="mb-3 text-sm text-muted">
             Категорія: <span className="text-paper">{activeLabel}</span>
@@ -63,20 +70,17 @@ export default async function HomePage({
     );
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isAdmin = await checkIsAdmin(supabase, user?.id);
-
+  let isAdmin = false;
   let likedIds = new Set<string>();
   let repostedIds = new Set<string>();
   if (user) {
     const postIds = posts.map((p) => p.id);
-    const [{ data: likes }, { data: reposts }] = await Promise.all([
+    const [admin, { data: likes }, { data: reposts }] = await Promise.all([
+      checkIsAdmin(supabase, user.id),
       supabase.from("likes").select("post_id").eq("user_id", user.id).in("post_id", postIds),
       supabase.from("reposts").select("post_id").eq("user_id", user.id).in("post_id", postIds),
     ]);
+    isAdmin = admin;
     likedIds = new Set((likes ?? []).map((l) => l.post_id));
     repostedIds = new Set((reposts ?? []).map((r) => r.post_id));
   }
@@ -98,6 +102,7 @@ export default async function HomePage({
 
   return (
     <div>
+      <LiveFeed />
       {activeLabel && (
         <p className="mb-3 text-sm text-muted">
           Категорія: <span className="text-paper">{activeLabel}</span>

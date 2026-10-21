@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import TopNav from "@/components/TopNav";
 import "./globals.css";
 
@@ -15,7 +16,11 @@ export default function RootLayout({
   return (
     <html lang="uk">
       <body className="min-h-screen bg-base font-body text-paper">
-        <TopNav />
+        <Suspense
+          fallback={<div className="h-[65px] border-b border-border bg-base" />}
+        >
+          <TopNav />
+        </Suspense>
         <main className="mx-auto max-w-2xl px-3 pb-24 pt-5 sm:px-4">
           {children}
         </main>

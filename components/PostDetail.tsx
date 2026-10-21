@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { compressImage } from "@/lib/image";
 import { createClient } from "@/lib/supabase/client";
 import type { Comment, Post } from "@/lib/types";
 import { assertPostLength } from "@/lib/moderation";
@@ -96,6 +97,8 @@ function CommentItem({
         <img
           src={comment.gif_url}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="mt-2 max-h-48 rounded-lg object-cover"
         />
       )}
@@ -194,11 +197,12 @@ export default function PostDetail({
 
     let gifUrl: string | null = null;
     if (gifFile) {
-      const fileExt = gifFile.name.split(".").pop();
+      const prepared = await compressImage(gifFile, 800, 0.8);
+      const fileExt = prepared.name.split(".").pop();
       const filePath = `${crypto.randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from("post-images")
-        .upload(filePath, gifFile);
+        .upload(filePath, prepared, { cacheControl: "31536000" });
       if (uploadError) {
         setSubmitting(false);
         setError("Не вдалося завантажити гіфку.");
@@ -292,6 +296,7 @@ export default function PostDetail({
           <img
             src={post.image_url}
             alt=""
+            decoding="async"
             className="mb-3 max-h-[32rem] w-full rounded-xl object-cover"
           />
         )}

@@ -99,6 +99,8 @@ export default function PostCard({
           <img
             src={post.image_url}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="mb-3 max-h-80 w-full rounded-xl object-cover"
           />
         )}

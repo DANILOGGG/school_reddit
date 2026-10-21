@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { assertPostLength, containsBlockedWord } from "@/lib/moderation";
 import ImageCropper from "@/components/ImageCropper";
+import { compressImage } from "@/lib/image";
 
 type Category = "none" | "news" | "thoughts";
 
@@ -55,11 +56,12 @@ export default function PostForm() {
       let imageUrl: string | null = null;
 
       if (file) {
-        const fileExt = file.name.split(".").pop();
+        const prepared = await compressImage(file, 1400, 0.82);
+        const fileExt = prepared.name.split(".").pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("post-images")
-          .upload(filePath, file);
+          .upload(filePath, prepared, { cacheControl: "31536000" });
 
         if (uploadError) throw uploadError;
 

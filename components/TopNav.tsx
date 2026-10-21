@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import CategoryMenu from "@/components/CategoryMenu";
-import { checkIsAdmin, formatBanUntil, isBanActive } from "@/lib/admin";
+import { formatBanUntil, isBanActive } from "@/lib/admin";
 import type { Ban } from "@/lib/types";
 
 const DONATE_URL =
@@ -21,22 +21,17 @@ export default async function TopNav() {
   let activeBan: Ban | null = null;
 
   if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-    profile = data as Profile | null;
-
-    isAdmin = await checkIsAdmin(supabase, user.id);
-    const { data: banRow } = await supabase
-      .from("bans")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (isBanActive(banRow as Ban | null)) activeBan = banRow as Ban;
-
-    const [{ count: pendingCount }, { count: unreadCount }] = await Promise.all([
+    // Усі запити одночасно, а не по черзі — так навігація завантажується швидше
+    const [
+      { data: profileRow },
+      { data: adminRow },
+      { data: banRow },
+      { count: pendingCount },
+      { count: unreadCount },
+    ] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle(),
+      supabase.from("bans").select("*").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("friendships")
         .select("id", { count: "exact", head: true })
@@ -48,6 +43,10 @@ export default async function TopNav() {
         .eq("receiver_id", user.id)
         .is("read_at", null),
     ]);
+
+    profile = profileRow as Profile | null;
+    isAdmin = !!adminRow;
+    if (isBanActive(banRow as Ban | null)) activeBan = banRow as Ban;
     hasActivity = (pendingCount ?? 0) > 0 || (unreadCount ?? 0) > 0;
   }
 
@@ -162,6 +161,7 @@ export default async function TopNav() {
               <img
                 src={profile.avatar_url}
                 alt=""
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             ) : (

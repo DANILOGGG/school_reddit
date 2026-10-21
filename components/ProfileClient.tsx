@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Post, Profile } from "@/lib/types";
 import { validateNickname } from "@/lib/auth";
+import { compressImage } from "@/lib/image";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -44,12 +45,13 @@ export default function ProfileClient({
 
     setBusy(true);
     const supabase = createClient();
-    const fileExt = file.name.split(".").pop();
+    const prepared = await compressImage(file, 256, 0.85);
+    const fileExt = prepared.name.split(".").pop();
     const filePath = `${profile.id}/avatar-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(filePath, file);
+      .upload(filePath, prepared, { cacheControl: "31536000" });
 
     if (uploadError) {
       setBusy(false);
@@ -158,7 +160,7 @@ export default function ProfileClient({
         >
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+            <img src={avatarUrl} alt="" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <span className="flex h-full w-full items-center justify-center text-2xl font-semibold text-mint">
               {nickname[0]?.toUpperCase()}
