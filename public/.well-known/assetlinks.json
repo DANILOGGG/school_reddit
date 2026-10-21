@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.school_reddit.twa",
+        "sha256_cert_fingerprints": ["9B:6F:4A:99:6C:DD:1E:AD:F9:76:59:CA:1E:86:06:FA:24:09:9E:34:3F:FA:00:3E:FD:8D:E1:2D:23:AE:71:8A"]
+      }
+    }]
