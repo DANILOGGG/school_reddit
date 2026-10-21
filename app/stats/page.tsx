@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import VisitChart, {
+  type ChartPoint,
+  type ChartSummary,
+} from "@/components/VisitChart";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 type VisitorStats = {
   total_unique: number;
-  last_day: number;
-  last_week: number;
   total_visits: number;
 };
 
@@ -27,6 +29,8 @@ export default async function StatsPage() {
     { count: postCount },
     { count: groupCount },
     { data: visitorRows },
+    { data: chartRows },
+    { data: summaryRows },
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase
@@ -35,15 +39,28 @@ export default async function StatsPage() {
       .is("group_id", null),
     supabase.from("groups").select("id", { count: "exact", head: true }),
     supabase.rpc("get_visitor_stats"),
+    supabase.rpc("get_visit_chart", { p_range: "week" }),
+    supabase.rpc("get_visit_summary", { p_range: "week" }),
   ]);
 
   const visitors = ((visitorRows as VisitorStats[] | null) ?? [])[0];
+
+  const points = ((chartRows as ChartPoint[] | null) ?? []).map((p) => ({
+    ...p,
+    n_visitors: Number(p.n_visitors),
+    n_visits: Number(p.n_visits),
+  }));
+  const s = ((summaryRows as ChartSummary[] | null) ?? [])[0];
+  const summary = {
+    n_visitors: Number(s?.n_visitors ?? 0),
+    n_visits: Number(s?.n_visits ?? 0),
+  };
 
   return (
     <div>
       <h1 className="mb-4 font-display text-xl text-paper">Статистика</h1>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <StatCard value={userCount ?? 0} label="Користувачів" />
         <StatCard value={postCount ?? 0} label="Постів" />
         <StatCard value={groupCount ?? 0} label="Груп" />
@@ -52,7 +69,8 @@ export default async function StatsPage() {
       <h2 className="mb-3 mt-6 font-display text-base text-paper">
         Відвідувачі сайту
       </h2>
-      <div className="grid grid-cols-2 gap-3">
+
+      <div className="mb-3 grid grid-cols-2 gap-3">
         <StatCard
           value={Number(visitors?.total_unique ?? 0)}
           label="Унікальних відвідувачів"
@@ -61,20 +79,9 @@ export default async function StatsPage() {
           value={Number(visitors?.total_visits ?? 0)}
           label="Усього заходів"
         />
-        <StatCard
-          value={Number(visitors?.last_day ?? 0)}
-          label="За останню добу"
-        />
-        <StatCard
-          value={Number(visitors?.last_week ?? 0)}
-          label="За 7 днів"
-        />
       </div>
-      <p className="mt-3 text-xs text-muted">
-        Рахуються браузери, які відкрили сайт, навіть без реєстрації. Якщо
-        людина зайде з іншого пристрою чи очистить дані браузера, її буде
-        пораховано знову.
-      </p>
+
+      <VisitChart initialRange="week" initialData={{ points, summary }} />
     </div>
   );
 }
