@@ -26,9 +26,14 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // getSession() читає токен з cookie БЕЗ запиту до Supabase (оновлює токен лише
+  // коли він прострочений). Раніше тут був getUser() — окремий мережевий запит
+  // на КОЖЕН перехід по сайту. Тут нам потрібно лише знати «залогінений чи ні»
+  // для редіректу; справжні дані й права все одно перевіряють сторінки та RLS у базі.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = !!session; // лише факт наявності сесії (без читання session.user)
 
   const isAuthPage = request.nextUrl.pathname.startsWith("/login");
 
