@@ -16,6 +16,7 @@ export type Post = {
   user_id: string;
   category: "news" | "thoughts" | null;
   group_id?: string | null;
+  view_count?: number;
   profiles?: Profile | null;
   likes?: { count: number }[];
   reposts?: { count: number }[];
@@ -72,3 +73,21 @@ export type Group = {
   member_count: number;
   created_at: string;
 };
+
+// Рядок статистики власного поста (функція get_my_post_stats)
+export type MyPostStat = {
+  id: string;
+  created_at: string;
+  body: string;
+  is_anonymous: boolean;
+  group_id: string | null;
+  group_name: string | null;
+  image_url: string | null;
+  view_count: number;
+  like_count: number;
+  comment_count: number;
+  repost_count: number;
+};
+
+// Одна точка графіка нових переглядів по днях (функція get_views_timeline)
+export type DayPoint = { bucket_day: string; views: number };

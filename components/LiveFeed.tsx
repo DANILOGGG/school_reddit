@@ -5,16 +5,30 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 // Автооновлення стрічки.
-// - Новий пост з'являється миттєво (Supabase Realtime), якщо ти вгорі сторінки.
+// - Новий пост з'являється (Supabase Realtime), якщо ти вгорі сторінки.
 // - Якщо ти прокрутив вниз — не смикаємо стрічку, а показуємо кнопку «Є нові пости».
-// - Коли повертаєшся на вкладку, а також раз на хвилину (про запас) стрічка оновлюється.
+// - Коли повертаєшся на вкладку після довгої перерви, стрічка оновлюється.
+//
+// Що змінено для швидкості: router.refresh() перезапускає ВЕСЬ рендер сторінки
+// на сервері (авторизація, меню, 4+ запити до бази). Раніше він викликався
+// щохвилини у кожного відкритого вікна та на кожен новий пост без паузи.
+// Тепер: без хвилинного опитування (realtime і так працює), події групуються
+// в один refresh, а на вкладці у фоні refresh не виконується взагалі.
+const REFRESH_DEBOUNCE_MS = 1500;
+const STALE_AFTER_MS = 2 * 60_000;
+
 export default function LiveFeed() {
   const router = useRouter();
   const [hasNew, setHasNew] = useState(false);
   const lastRefresh = useRef(Date.now());
   const missed = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshNow = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
     lastRefresh.current = Date.now();
     missed.current = false;
     setHasNew(false);
@@ -29,8 +43,13 @@ export default function LiveFeed() {
         missed.current = true;
         return;
       }
-      if (window.scrollY < 150) refreshNow();
-      else setHasNew(true);
+      if (window.scrollY >= 150) {
+        setHasNew(true);
+        return;
+      }
+      // Кілька подій поспіль (хтось видалив пачку постів) — один refresh
+      if (timer.current) return;
+      timer.current = setTimeout(refreshNow, REFRESH_DEBOUNCE_MS);
     }
 
     const channel = supabase
@@ -49,23 +68,16 @@ export default function LiveFeed() {
 
     function onVisible() {
       if (document.visibilityState !== "visible") return;
-      if (missed.current || Date.now() - lastRefresh.current > 30_000) {
+      if (missed.current || Date.now() - lastRefresh.current > STALE_AFTER_MS) {
         refreshNow();
       }
     }
     document.addEventListener("visibilitychange", onVisible);
 
-    // Запасний варіант, якщо realtime раптом не спрацює
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible" && window.scrollY < 150) {
-        refreshNow();
-      }
-    }, 60_000);
-
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(timer);
+      if (timer.current) clearTimeout(timer.current);
     };
   }, [refreshNow]);
 

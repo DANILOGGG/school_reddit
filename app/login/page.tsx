@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,11 +11,27 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // Нова людина бачить РЕЄСТРАЦІЮ (раніше першим відкривався вхід, і всі плутались).
+  // Вхід відкривається першим лише на пристрої, де вже був акаунт (див. useEffect),
+  // або за явним посиланням /login?mode=login.
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [ready, setReady] = useState(false);
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const param = new URLSearchParams(window.location.search).get("mode");
+      if (param === "login") setMode("login");
+      else if (param === "register" || param === "signup") setMode("signup");
+      else if (localStorage.getItem("sf_has_account")) setMode("login");
+    } catch {
+      // сховище недоступне — лишаємо реєстрацію
+    }
+    setReady(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,17 +47,37 @@ export default function LoginPage() {
     const email = nicknameToEmail(nickname);
 
     if (mode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { nickname: nickname.trim() } },
       });
       if (signUpError) {
         setLoading(false);
-        if (signUpError.message.includes("already registered")) {
+        const msg = signUpError.message;
+        // Нік зайнятий: або e-mail уже є, або профіль із таким ніком уже створено
+        if (msg.includes("already registered") || msg.includes("Database error")) {
           return setError("Цей нік вже зайнятий. Спробуй інший або увійди.");
         }
-        return setError("Не вдалося зареєструватись: " + signUpError.message);
+        return setError("Не вдалося зареєструватись: " + msg);
+      }
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        setLoading(false);
+        return setError("Цей нік вже зайнятий. Спробуй інший або увійди.");
+      }
+
+      // Якщо Supabase одразу видав сесію — користувач уже залогінений.
+      // Якщо ні — входимо тими ж даними, щоб після реєстрації він потрапив на сайт.
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) {
+          setLoading(false);
+          setMode("login");
+          return setError("Акаунт створено, але автоматичний вхід не вдався. Натисни «Увійти».");
+        }
       }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -54,12 +90,20 @@ export default function LoginPage() {
       }
     }
 
+    try {
+      localStorage.setItem("sf_has_account", "1");
+    } catch {}
+
     router.push("/");
     router.refresh();
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-base px-4">
+    <div
+      className={`flex min-h-screen items-center justify-center bg-base px-4 transition-opacity ${
+        ready ? "opacity-100" : "opacity-0"
+      }`}
+    >
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6">
         <h1 className="mb-1 text-center font-display text-2xl text-paper">
           Шкільна дошка
@@ -122,6 +166,20 @@ export default function LoginPage() {
               : "Зареєструватись"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-muted">
+          {mode === "signup" ? "Вже є акаунт?" : "Ще немає акаунта?"}{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setMode(mode === "signup" ? "login" : "signup");
+            }}
+            className="font-medium text-mint hover:underline"
+          >
+            {mode === "signup" ? "Увійти" : "Зареєструватись"}
+          </button>
+        </p>
       </div>
     </div>
   );

@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Message, Profile } from "@/lib/types";
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("uk-UA", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatTime } from "@/lib/format";
 
 export default function ChatClient({
   currentUserId,
@@ -78,7 +72,7 @@ export default function ChatClient({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
+    <div className="flex h-[calc(100dvh-8rem)] flex-col">
       <div className="mb-3 flex items-center gap-3 border-b border-border pb-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-chalk bg-surfaceRaised">
           {friend.avatar_url ? (

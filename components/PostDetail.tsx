@@ -4,20 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { compressImage } from "@/lib/image";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
 import type { Comment, Post } from "@/lib/types";
 import { assertPostLength } from "@/lib/moderation";
 import PostActions from "@/components/PostActions";
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("uk-UA", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatDateTime as formatDate } from "@/lib/format";
 
 function CommentItem({
   comment,
@@ -35,19 +26,21 @@ function CommentItem({
 
   async function handleLike() {
     if (liked) return;
+    // миттєво показуємо лайк, запит іде у фоні; при помилці повертаємо
+    setLiked(true);
+    setCount((n) => n + 1);
+
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    const userId = await getClientUserId(supabase);
+    const { error } = userId
+      ? await supabase
+          .from("comment_likes")
+          .insert({ comment_id: comment.id, user_id: userId })
+      : { error: { code: "no-user" } };
 
-    const { error } = await supabase
-      .from("comment_likes")
-      .insert({ comment_id: comment.id, user_id: user.id });
-
-    if (!error) {
-      setLiked(true);
-      setCount((n) => n + 1);
+    if (error) {
+      setCount((n) => n - 1);
+      if (error.code !== "23505") setLiked(false);
     }
   }
 
@@ -188,9 +181,8 @@ export default function PostDetail({
 
     setSubmitting(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const userId = await getClientUserId(supabase);
+    const user = userId ? { id: userId } : null;
     if (!user) {
       setSubmitting(false);
       setError("Треба увійти, щоб коментувати.");
@@ -248,7 +240,10 @@ export default function PostDetail({
           ← Група «{group.name}»
         </Link>
       )}
-      <div className="rounded-2xl border border-border bg-surface p-5">
+      <div
+        data-view-post={post.id}
+        className="rounded-2xl border border-border bg-surface p-5"
+      >
         <div className="mb-2 flex items-center justify-between text-xs text-muted">
           <div className="flex items-center gap-2">
             {post.is_anonymous ? (
@@ -323,6 +318,7 @@ export default function PostDetail({
           liked={liked}
           reposted={reposted}
           inGroup={!!post.group_id}
+          viewCount={post.view_count ?? 0}
         />
       </div>
 

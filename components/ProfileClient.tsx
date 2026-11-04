@@ -1,21 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Post, Profile } from "@/lib/types";
 import { validateNickname } from "@/lib/auth";
 import { compressImage } from "@/lib/image";
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("uk-UA", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatCount, formatDateTime as formatDate } from "@/lib/format";
+import EyeIcon from "@/components/EyeIcon";
 
 export default function ProfileClient({
   profile,
@@ -106,8 +99,11 @@ export default function ProfileClient({
       return;
     }
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      localStorage.removeItem("sf_has_account");
+    } catch {}
+    // після видалення акаунта показуємо реєстрацію
+    window.location.assign("/login?mode=register");
   }
 
   async function handleDeletePost(postId: string) {
@@ -286,6 +282,24 @@ export default function ProfileClient({
         </div>
       )}
 
+      <Link
+        href="/profile/stats"
+        className="mb-5 flex items-center justify-between rounded-2xl border border-border bg-surface p-4 transition hover:border-chalk"
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-moss text-lg">
+            📊
+          </span>
+          <span>
+            <span className="block font-medium text-paper">Моя статистика</span>
+            <span className="block text-xs text-muted">
+              Перегляди, лайки, коментарі та репости твоїх постів
+            </span>
+          </span>
+        </span>
+        <span className="text-mint">→</span>
+      </Link>
+
       <h2 className="mb-3 font-display text-lg text-paper">Мої пости</h2>
       <div className="flex flex-col gap-3">
         {posts.map((post) => (
@@ -355,6 +369,14 @@ export default function ProfileClient({
                 {post.body}
               </p>
             )}
+
+            <div
+              className="mt-3 flex items-center justify-end gap-1.5 text-sm text-muted"
+              title="Перегляди"
+            >
+              <EyeIcon />
+              {formatCount(post.view_count ?? 0)}
+            </div>
           </div>
         ))}
         {posts.length === 0 && (

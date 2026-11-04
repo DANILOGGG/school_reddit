@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import PostForm from "@/components/PostForm";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +10,13 @@ export default async function NewGroupPostPage({
   params: { id: string };
 }) {
   const supabase = createClient();
-  const [{ data: group }, userRes] = await Promise.all([
+  const [{ data: group }, user] = await Promise.all([
     supabase.from("groups").select("id, name, owner_id").eq("id", params.id).single(),
-    supabase.auth.getUser(),
+    getUser(),
   ]);
 
   if (!group) return notFound();
-  if (!userRes.data.user || userRes.data.user.id !== group.owner_id) {
+  if (!user || user.id !== group.owner_id) {
     redirect(`/g/${params.id}`);
   }
 

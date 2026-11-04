@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getIsAdmin, getUser } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import CategoryMenu from "@/components/CategoryMenu";
-import { formatBanUntil, isBanActive } from "@/lib/admin";
-import type { Ban } from "@/lib/types";
 
 const DONATE_URL =
   process.env.NEXT_PUBLIC_DONATE_URL || "https://send.monobank.ua/";
@@ -11,27 +9,28 @@ const TELEGRAM_URL = process.env.NEXT_PUBLIC_TELEGRAM_URL || "https://t.me/";
 
 export default async function TopNav() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   let profile: Profile | null = null;
   let hasActivity = false;
   let isAdmin = false;
-  let activeBan: Ban | null = null;
 
   if (user) {
-    // Усі запити одночасно, а не по черзі — так навігація завантажується швидше
+    // Усі запити одночасно, а не по черзі — так навігація завантажується швидше.
+    // Беремо лише потрібні колонки. Перевірка адміна кешується на весь запит,
+    // тож сторінка (головна, пост) не питає її вдруге.
     const [
       { data: profileRow },
-      { data: adminRow },
-      { data: banRow },
+      admin,
       { count: pendingCount },
       { count: unreadCount },
     ] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
-      supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle(),
-      supabase.from("bans").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("id, nickname, avatar_url")
+        .eq("id", user.id)
+        .single(),
+      getIsAdmin(user.id),
       supabase
         .from("friendships")
         .select("id", { count: "exact", head: true })
@@ -45,8 +44,7 @@ export default async function TopNav() {
     ]);
 
     profile = profileRow as Profile | null;
-    isAdmin = !!adminRow;
-    if (isBanActive(banRow as Ban | null)) activeBan = banRow as Ban;
+    isAdmin = admin;
     hasActivity = (pendingCount ?? 0) > 0 || (unreadCount ?? 0) > 0;
   }
 
@@ -54,7 +52,7 @@ export default async function TopNav() {
     "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-surfaceRaised text-paper transition hover:border-chalk hover:text-mint";
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-base/95 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-border bg-base/95">
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 py-3">
         <Link href="/" className="shrink-0 font-display text-lg text-paper sm:text-xl">
           Шкільна дошка
@@ -176,13 +174,6 @@ export default async function TopNav() {
       {isAdmin && (
         <div className="bg-gold/10 px-3 py-1 text-center text-xs text-gold">
           Ти зайшов як адмін
-        </div>
-      )}
-      {activeBan && (
-        <div className="bg-flag/10 px-3 py-2 text-center text-sm text-flag">
-          Твій акаунт заблоковано {formatBanUntil(activeBan.banned_until)}.
-          Ти можеш читати, але не можеш писати, коментувати чи лайкати.
-          {activeBan.reason ? ` Причина: ${activeBan.reason}` : ""}
         </div>
       )}
     </header>

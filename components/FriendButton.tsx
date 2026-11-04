@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
 import type { FriendshipStatus } from "@/lib/types";
 
 export default function FriendButton({
@@ -20,9 +20,8 @@ export default function FriendButton({
   async function sendRequest() {
     setBusy(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const userId = await getClientUserId(supabase);
+    const user = userId ? { id: userId } : null;
     if (!user) return setBusy(false);
 
     const { data, error } = await supabase

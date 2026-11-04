@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getIsAdmin, getUser } from "@/lib/supabase/server";
+import { POST_SELECT } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import PostCard from "@/components/PostCard";
 import FriendButton from "@/components/FriendButton";
 import AdminUserPanel from "@/components/AdminUserPanel";
-import { checkIsAdmin } from "@/lib/admin";
 import type { Ban, FriendshipStatus, Post, Profile } from "@/lib/types";
 
 export const revalidate = 0;
@@ -18,27 +18,28 @@ export default async function PublicProfilePage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, nickname, avatar_url, created_at")
     .eq("nickname", params.nickname)
     .single();
 
   if (!profile) return notFound();
 
   // Чужі анонімні пости не показуємо нікому, крім самого автора (той бачить
-  // їх на /profile, не тут).
-  const { data: posts } = await supabase
-    .from("posts")
-    .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
-    .eq("user_id", profile.id)
-    .eq("is_anonymous", false)
-    .is("group_id", null)
-    .order("created_at", { ascending: false });
+  // їх на /profile, не тут). Пости, користувач і перевірка адміна — одночасно.
+  const [{ data: rawPosts, count: postsCount }, user] = await Promise.all([
+    supabase
+      .from("posts")
+      .select(POST_SELECT, { count: "exact" })
+      .eq("user_id", profile.id)
+      .eq("is_anonymous", false)
+      .is("group_id", null)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    getUser(),
+  ]);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isAdmin = await checkIsAdmin(supabase, user?.id);
+  const posts = (rawPosts ?? []) as unknown as Post[];
+  const isAdmin = await getIsAdmin(user?.id);
 
   let targetBan: Ban | null = null;
   if (isAdmin) {
@@ -104,7 +105,7 @@ export default async function PublicProfilePage({
         </div>
         <div>
           <h1 className="font-display text-xl text-paper">{typedProfile.nickname}</h1>
-          <p className="text-sm text-muted">{posts?.length ?? 0} постів</p>
+          <p className="text-sm text-muted">{postsCount ?? posts?.length ?? 0} постів</p>
         </div>
       </div>
 
@@ -127,7 +128,7 @@ export default async function PublicProfilePage({
       )}
 
       <div className="flex flex-col gap-3">
-        {(posts as Post[] | null)?.map((post) => (
+        {(posts as unknown as Post[] | null)?.map((post) => (
           <PostCard
             key={post.id}
             post={post}

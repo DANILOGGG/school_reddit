@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
 import { assertPostLength, containsBlockedWord } from "@/lib/moderation";
 import ImageCropper from "@/components/ImageCropper";
 import { compressImage } from "@/lib/image";
@@ -48,9 +48,8 @@ export default function PostForm({ groupId }: { groupId?: string }) {
     const supabase = createClient();
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const userId = await getClientUserId(supabase);
+      const user = userId ? { id: userId } : null;
       if (!user) throw new Error("not authenticated");
 
       let imageUrl: string | null = null;

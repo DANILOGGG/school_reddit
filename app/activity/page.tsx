@@ -1,62 +1,50 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AcceptFriendButton from "@/components/AcceptFriendButton";
+import { formatDateTime as formatDate } from "@/lib/format";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("uk-UA", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default async function ActivityPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/login");
 
-  // 1. Заявки в друзі, які чекають на відповідь
-  const { data: requests } = await supabase
-    .from("friendships")
-    .select("*, requester:profiles!friendships_requester_id_fkey(*)")
-    .eq("addressee_id", user.id)
-    .eq("status", "pending");
+  // Заявки, мої пости і непрочитані повідомлення — одночасно (раніше по черзі)
+  const [{ data: requests }, { data: myPosts }, { data: unread }] =
+    await Promise.all([
+      supabase
+        .from("friendships")
+        .select("id, requester:profiles!friendships_requester_id_fkey(id, nickname)")
+        .eq("addressee_id", user.id)
+        .eq("status", "pending"),
+      supabase.from("posts").select("id").eq("user_id", user.id),
+      supabase
+        .from("messages")
+        .select("id, sender:profiles!messages_sender_id_fkey(id, nickname)")
+        .eq("receiver_id", user.id)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
 
-  // 2. Мої пости, щоб знайти коментарі до них
-  const { data: myPosts } = await supabase
-    .from("posts")
-    .select("id")
-    .eq("user_id", user.id);
   const myPostIds = (myPosts ?? []).map((p) => p.id);
 
   const { data: comments } =
     myPostIds.length > 0
       ? await supabase
           .from("comments")
-          .select("*, profiles!comments_user_id_fkey(*)")
+          .select("id, post_id, body, created_at, profiles!comments_user_id_fkey(nickname)")
           .in("post_id", myPostIds)
           .neq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(20)
       : { data: [] };
 
-  // 3. Непрочитані повідомлення, згруповані по відправнику
-  const { data: unread } = await supabase
-    .from("messages")
-    .select("*, sender:profiles!messages_sender_id_fkey(*)")
-    .eq("receiver_id", user.id)
-    .is("read_at", null)
-    .order("created_at", { ascending: false });
-
   const unreadBySender = new Map<string, { nickname: string; count: number }>();
-  for (const m of unread ?? []) {
+  for (const m of (unread ?? []) as any[]) {
     const sender = (m as any).sender;
     if (!sender) continue;
     const existing = unreadBySender.get(sender.id);

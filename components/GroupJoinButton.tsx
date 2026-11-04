@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
 
 export default function GroupJoinButton({
   groupId,
@@ -18,9 +18,8 @@ export default function GroupJoinButton({
   async function toggle() {
     setBusy(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const userId = await getClientUserId(supabase);
+    const user = userId ? { id: userId } : null;
     if (!user) {
       setBusy(false);
       return;

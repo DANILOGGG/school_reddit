@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getIsAdmin, getUser } from "@/lib/supabase/server";
+import { POST_SELECT } from "@/lib/queries";
 import PostCard from "@/components/PostCard";
 import LiveFeed from "@/components/LiveFeed";
 import { GroupAvatar } from "@/components/GroupCard";
 import GroupJoinButton from "@/components/GroupJoinButton";
 import GroupDeleteButton from "@/components/GroupDeleteButton";
-import { checkIsAdmin } from "@/lib/admin";
 import { subscribersLabel } from "@/lib/groups";
 import type { Group, Post } from "@/lib/types";
 
@@ -16,17 +16,16 @@ export const dynamic = "force-dynamic";
 export default async function GroupPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: groupRow }, userRes] = await Promise.all([
+  const [{ data: groupRow }, user] = await Promise.all([
     supabase.from("groups").select("*").eq("id", params.id).single(),
-    supabase.auth.getUser(),
+    getUser(),
   ]);
   if (!groupRow) return notFound();
 
   const group = groupRow as Group;
-  const user = userRes.data.user;
 
   const [isAdmin, membership] = await Promise.all([
-    checkIsAdmin(supabase, user?.id),
+    getIsAdmin(user?.id),
     user
       ? supabase
           .from("group_members")
@@ -48,13 +47,11 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   if (canRead) {
     const { data } = await supabase
       .from("posts")
-      .select(
-        "*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)"
-      )
+      .select(POST_SELECT)
       .eq("group_id", group.id)
       .order("created_at", { ascending: false })
       .limit(50);
-    posts = (data as Post[]) ?? [];
+    posts = (data as unknown as Post[]) ?? [];
 
     if (user && posts.length > 0) {
       const postIds = posts.map((p) => p.id);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
 import { containsBlockedWord } from "@/lib/moderation";
 import { GroupAvatar } from "@/components/GroupCard";
@@ -49,9 +49,8 @@ export default function GroupForm({ group }: { group?: Group }) {
     const supabase = createClient();
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const userId = await getClientUserId(supabase);
+      const user = userId ? { id: userId } : null;
       if (!user) throw new Error("not authenticated");
 
       let avatarUrl = group?.avatar_url ?? null;

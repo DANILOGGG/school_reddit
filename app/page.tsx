@@ -1,10 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
-import PostCard from "@/components/PostCard";
-import type { Post } from "@/lib/types";
+import Link from "next/link";
 import { Suspense } from "react";
-import { checkIsAdmin } from "@/lib/admin";
+import { createClient, getIsAdmin, getUser } from "@/lib/supabase/server";
+import { POST_SELECT, POSTS_PAGE_SIZE } from "@/lib/queries";
+import PostCard from "@/components/PostCard";
 import GroupsStrip from "@/components/GroupsStrip";
 import LiveFeed from "@/components/LiveFeed";
+import type { Post } from "@/lib/types";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -18,17 +19,26 @@ const FILTER_LABELS: Record<string, string> = {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: { category?: string };
+  searchParams: { category?: string; before?: string };
 }) {
   const supabase = createClient();
   const filter = searchParams.category;
+  // «before» — позначка часу останнього поста попередньої сторінки.
+  // Перевіряємо, що це справді дата, щоб не відправляти сміття в запит.
+  const before =
+    searchParams.before && !Number.isNaN(Date.parse(searchParams.before))
+      ? searchParams.before
+      : null;
 
+  // Беремо на 1 пост більше за розмір сторінки — так знаємо, чи є «старіші».
   let query = supabase
     .from("posts")
-    .select("*, profiles!posts_user_id_fkey(*), likes(count), reposts(count), comments(count)")
+    .select(POST_SELECT)
     .is("group_id", null)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(POSTS_PAGE_SIZE + 1);
+
+  if (before) query = query.lt("created_at", before);
 
   if (filter === "anonymous") {
     query = query.eq("is_anonymous", true);
@@ -39,11 +49,7 @@ export default async function HomePage({
   }
 
   // Пости й користувач — одночасно
-  const [{ data: posts, error }, userRes] = await Promise.all([
-    query,
-    supabase.auth.getUser(),
-  ]);
-  const user = userRes.data.user;
+  const [{ data: rows, error }, user] = await Promise.all([query, getUser()]);
 
   if (error) {
     console.error("Supabase posts fetch error:", error);
@@ -57,21 +63,40 @@ export default async function HomePage({
 
   const activeLabel = filter ? FILTER_LABELS[filter] : null;
 
-  if (!posts || posts.length === 0) {
+  const fetched = (rows ?? []) as unknown as Post[];
+  const hasMore = fetched.length > POSTS_PAGE_SIZE;
+  const posts = hasMore ? fetched.slice(0, POSTS_PAGE_SIZE) : fetched;
+  const nextCursor = hasMore ? posts[posts.length - 1].created_at : null;
+
+  const header = (
+    <>
+      {!before && <LiveFeed />}
+      <Suspense fallback={null}>
+        <GroupsStrip userId={user?.id ?? null} />
+      </Suspense>
+      {activeLabel && (
+        <p className="mb-3 text-sm text-muted">
+          Категорія: <span className="text-paper">{activeLabel}</span>
+        </p>
+      )}
+    </>
+  );
+
+  if (posts.length === 0) {
     return (
       <div>
-        <LiveFeed />
-        <Suspense fallback={null}>
-          <GroupsStrip userId={user?.id ?? null} />
-        </Suspense>
-        {activeLabel && (
-          <p className="mb-3 text-sm text-muted">
-            Категорія: <span className="text-paper">{activeLabel}</span>
-          </p>
-        )}
+        {header}
         <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted">
-          Тут поки що порожньо.
+          {before ? "Старіших постів немає." : "Тут поки що порожньо."}
         </div>
+        {before && (
+          <Link
+            href={filter ? `/?category=${filter}` : "/"}
+            className="mt-3 inline-block text-sm text-mint hover:underline"
+          >
+            ← На початок стрічки
+          </Link>
+        )}
       </div>
     );
   }
@@ -82,7 +107,7 @@ export default async function HomePage({
   if (user) {
     const postIds = posts.map((p) => p.id);
     const [admin, { data: likes }, { data: reposts }] = await Promise.all([
-      checkIsAdmin(supabase, user.id),
+      getIsAdmin(user.id), // уже порахований у TopNav — другий запит не робиться
       supabase.from("likes").select("post_id").eq("user_id", user.id).in("post_id", postIds),
       supabase.from("reposts").select("post_id").eq("user_id", user.id).in("post_id", postIds),
     ]);
@@ -91,32 +116,22 @@ export default async function HomePage({
     repostedIds = new Set((reposts ?? []).map((r) => r.post_id));
   }
 
-  const typedPosts = posts as Post[];
-
   // Пости з більшою кількістю репостів просуваються вище в стрічці
-  // (лише коли не застосовано фільтр категорії — фільтр завжди
-  // сортується за часом, щоб не плутати результат пошуку).
-  let ordered = typedPosts;
-  if (!filter) {
-    const boosted = typedPosts
+  // (лише на першій сторінці без фільтра категорії — фільтр і наступні
+  // сторінки завжди сортуються за часом, щоб не плутати результат).
+  let ordered = posts;
+  if (!filter && !before) {
+    const boosted = posts
       .filter((p) => (p.reposts?.[0]?.count ?? 0) >= 3)
       .sort((a, b) => (b.reposts?.[0]?.count ?? 0) - (a.reposts?.[0]?.count ?? 0));
     const boostedIds = new Set(boosted.map((p) => p.id));
-    const rest = typedPosts.filter((p) => !boostedIds.has(p.id));
+    const rest = posts.filter((p) => !boostedIds.has(p.id));
     ordered = [...boosted, ...rest];
   }
 
   return (
     <div>
-      <LiveFeed />
-      <Suspense fallback={null}>
-        <GroupsStrip userId={user?.id ?? null} />
-      </Suspense>
-      {activeLabel && (
-        <p className="mb-3 text-sm text-muted">
-          Категорія: <span className="text-paper">{activeLabel}</span>
-        </p>
-      )}
+      {header}
       <div className="flex flex-col gap-3">
         {ordered.map((post) => (
           <PostCard
@@ -127,6 +142,31 @@ export default async function HomePage({
             isAdmin={isAdmin}
           />
         ))}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        {before ? (
+          <Link
+            href={filter ? `/?category=${filter}` : "/"}
+            className="text-sm text-muted hover:text-paper"
+          >
+            ← На початок
+          </Link>
+        ) : (
+          <span />
+        )}
+        {nextCursor && (
+          <Link
+            prefetch={false}
+            href={{
+              pathname: "/",
+              query: { ...(filter ? { category: filter } : {}), before: nextCursor },
+            }}
+            className="rounded-full border border-border px-4 py-2 text-sm text-paper transition hover:border-chalk"
+          >
+            Старіші пости →
+          </Link>
+        )}
       </div>
     </div>
   );

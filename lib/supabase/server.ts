@@ -1,7 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export function createClient() {
+// cache() з React: в межах ОДНОГО запиту до сайту функція виконується один раз,
+// а всі наступні виклики (TopNav, сторінка, вкладені компоненти) отримують
+// той самий результат. Раніше кожен компонент створював свого клієнта і
+// окремо питав Supabase Auth «хто це?» — це були зайві мережеві запити.
+export const createClient = cache(() => {
   const cookieStore = cookies();
 
   return createServerClient(
@@ -29,4 +34,23 @@ export function createClient() {
       },
     }
   );
-}
+});
+
+// Поточний користувач — рівно один запит до Supabase Auth на весь рендер сторінки.
+export const getUser = cache(async () => {
+  const {
+    data: { user },
+  } = await createClient().auth.getUser();
+  return user;
+});
+
+// Чи адмін — теж один запит на рендер, навіть якщо питають і TopNav, і сторінка.
+export const getIsAdmin = cache(async (userId: string | null | undefined) => {
+  if (!userId) return false;
+  const { data } = await createClient()
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!data;
+});

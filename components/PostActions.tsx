@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
+import dynamic from "next/dynamic";
+import EyeIcon from "@/components/EyeIcon";
+import { formatCount } from "@/lib/format";
+import { createClient, getClientUserId } from "@/lib/supabase/client";
+
+// Вікно «Поділитись» вантажиться лише по кліку
+const ShareSheet = dynamic(() => import("@/components/ShareSheet"));
 
 export default function PostActions({
   postId,
@@ -13,6 +18,7 @@ export default function PostActions({
   liked,
   reposted,
   inGroup = false,
+  viewCount = 0,
 }: {
   postId: string;
   likeCount: number;
@@ -21,34 +27,34 @@ export default function PostActions({
   liked: boolean;
   reposted: boolean;
   inGroup?: boolean;
+  viewCount?: number;
 }) {
   const [isLiked, setIsLiked] = useState(liked);
   const [likes, setLikes] = useState(likeCount);
   const [isReposted, setIsReposted] = useState(reposted);
   const [reposts, setReposts] = useState(repostCount);
   const [shareOpen, setShareOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [friends, setFriends] = useState<Profile[] | null>(null);
-  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
 
+  // Лайк/репост змінюються ОДРАЗУ (оптимістично), а запит іде у фоні.
+  // Якщо база відмовила (наприклад, бан) — повертаємо як було.
   async function handleLike(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (isLiked) return;
 
+    setIsLiked(true);
+    setLikes((n) => n + 1);
+
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    const userId = await getClientUserId(supabase);
+    const { error } = userId
+      ? await supabase.from("likes").insert({ post_id: postId, user_id: userId })
+      : { error: { code: "no-user" } };
 
-    const { error } = await supabase
-      .from("likes")
-      .insert({ post_id: postId, user_id: user.id });
-
-    if (!error) {
-      setIsLiked(true);
-      setLikes((n) => n + 1);
+    if (error) {
+      setLikes((n) => n - 1);
+      // 23505 = лайк уже існує (наприклад, з іншої вкладки) — лишаємо «лайкнуто»
+      if (error.code !== "23505") setIsLiked(false);
     }
   }
 
@@ -57,19 +63,18 @@ export default function PostActions({
     e.stopPropagation();
     if (isReposted) return;
 
+    setIsReposted(true);
+    setReposts((n) => n + 1);
+
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    const userId = await getClientUserId(supabase);
+    const { error } = userId
+      ? await supabase.from("reposts").insert({ post_id: postId, user_id: userId })
+      : { error: { code: "no-user" } };
 
-    const { error } = await supabase
-      .from("reposts")
-      .insert({ post_id: postId, user_id: user.id });
-
-    if (!error) {
-      setIsReposted(true);
-      setReposts((n) => n + 1);
+    if (error) {
+      setReposts((n) => n - 1);
+      if (error.code !== "23505") setIsReposted(false);
     }
   }
 
@@ -77,53 +82,6 @@ export default function PostActions({
     e.preventDefault();
     e.stopPropagation();
     setShareOpen(true);
-    if (friends === null) loadFriends();
-  }
-
-  async function loadFriends() {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return setFriends([]);
-
-    const { data: friendships } = await supabase
-      .from("friendships")
-      .select(
-        "*, requester:profiles!friendships_requester_id_fkey(*), addressee:profiles!friendships_addressee_id_fkey(*)"
-      )
-      .eq("status", "accepted")
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
-
-    const list: Profile[] = (friendships ?? []).map((f: any) =>
-      f.requester_id === user.id ? f.addressee : f.requester
-    );
-    setFriends(list);
-  }
-
-  async function sendToFriend(friendId: string) {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase.from("messages").insert({
-      sender_id: user.id,
-      receiver_id: friendId,
-      shared_post_id: postId,
-    });
-
-    if (!error) {
-      setSentTo((prev) => new Set(prev).add(friendId));
-    }
-  }
-
-  async function copyLink() {
-    const url = `${window.location.origin}/post/${postId}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   }
 
   const btn =
@@ -180,7 +138,8 @@ export default function PostActions({
             strokeLinejoin="round"
           />
         </svg>
-        Поділитись
+        <span className="hidden sm:inline">Поділитись</span>
+        <span className="sr-only sm:hidden">Поділитись</span>
       </button>
       )}
 
@@ -206,70 +165,19 @@ export default function PostActions({
       </button>
       )}
 
+      <span
+        className={`flex items-center gap-1.5 px-2 py-1.5 text-sm text-muted ${
+          inGroup ? "ml-auto" : ""
+        }`}
+        title="Перегляди"
+        aria-label={`Перегляди: ${viewCount}`}
+      >
+        <EyeIcon />
+        {formatCount(viewCount)}
+      </span>
+
       {shareOpen && (
-        <div
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setShareOpen(false);
-          }}
-          className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 sm:items-center"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-t-2xl border border-border bg-surface p-5 sm:rounded-2xl"
-          >
-            <h3 className="mb-4 font-display text-lg text-paper">
-              Поділитись постом
-            </h3>
-            <button
-              onClick={copyLink}
-              className="flex w-full items-center gap-3 rounded-xl border border-border bg-surfaceRaised p-3 text-left text-paper hover:border-chalk"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
-              {copied ? "Скопійовано!" : "Скопіювати посилання"}
-            </button>
-
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-medium text-muted">
-                Надіслати другу
-              </p>
-              {friends === null && (
-                <p className="text-sm text-muted">Завантаження…</p>
-              )}
-              {friends !== null && friends.length === 0 && (
-                <p className="text-sm text-muted">
-                  У тебе поки немає друзів.
-                </p>
-              )}
-              <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-                {friends?.map((friend) => (
-                  <button
-                    key={friend.id}
-                    onClick={() => sendToFriend(friend.id)}
-                    disabled={sentTo.has(friend.id)}
-                    className="flex items-center justify-between rounded-xl border border-border bg-surfaceRaised px-3 py-2 text-left text-sm text-paper transition hover:border-chalk disabled:opacity-50"
-                  >
-                    <span>{friend.nickname}</span>
-                    <span className="text-xs text-mint">
-                      {sentTo.has(friend.id) ? "Надіслано" : "Надіслати"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShareOpen(false)}
-              className="mt-4 w-full rounded-full border border-border py-2 text-sm text-paper"
-            >
-              Закрити
-            </button>
-          </div>
-        </div>
+        <ShareSheet postId={postId} onClose={() => setShareOpen(false)} />
       )}
     </div>
   );

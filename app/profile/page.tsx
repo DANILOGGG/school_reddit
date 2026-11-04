@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ProfileClient from "@/components/ProfileClient";
 import type { Post, Profile } from "@/lib/types";
@@ -8,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect("/login");
 

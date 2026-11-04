@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import TopNav from "@/components/TopNav";
 import VisitTracker from "@/components/VisitTracker";
+import ViewTracker from "@/components/ViewTracker";
+import HideOnBanned from "@/components/HideOnBanned";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
@@ -35,12 +37,15 @@ export default function RootLayout({
     <html lang="uk">
       <body className="min-h-screen bg-base font-body text-paper">
         <VisitTracker />
+        <ViewTracker />
         <ServiceWorkerRegister />
-        <Suspense
-          fallback={<div className="h-[65px] border-b border-border bg-base" />}
-        >
-          <TopNav />
-        </Suspense>
+        <HideOnBanned>
+          <Suspense
+            fallback={<div className="h-[65px] border-b border-border bg-base" />}
+          >
+            <TopNav />
+          </Suspense>
+        </HideOnBanned>
         <main className="mx-auto max-w-2xl px-3 pb-24 pt-5 sm:px-4">
           {children}
         </main>
